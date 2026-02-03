@@ -1,0 +1,162 @@
+# Dugger-Schema for Solana Hybrid Project (Rust + Python)
+# Example configuration for projects like SolanaShredder
+
+project_type: "solana"
+
+# Anchor files for hybrid project detection
+anchor_files:
+  - path: "Anchor.toml"
+    weight: 25
+    provider: "solana"
+    metadata:
+      framework: "anchor"
+  - path: "Cargo.toml"
+    weight: 15
+    provider: "rust"
+    metadata:
+      language: "rust"
+  - path: "pyproject.toml"
+    weight: 10
+    provider: "python"
+    metadata:
+      language: "python"
+  - path: "programs/"
+    weight: 10
+    provider: "solana"
+    metadata:
+      type: "programs"
+
+# Version configuration for multiple files
+version_formats:
+  - file_path: "Anchor.toml"
+    pattern: 'version\s*=\s*"([^"]+)"'
+    replacement: 'version = "{new_version}"'
+    encoding: "utf-8"
+  - file_path: "Cargo.toml"
+    pattern: 'version\s*=\s*"([^"]+)"'
+    replacement: 'version = "{new_version}"'
+    encoding: "utf-8"
+  - file_path: "pyproject.toml"
+    pattern: 'version\s*=\s*"([^"]+)"'
+    replacement: 'version = "{new_version}"'
+    encoding: "utf-8"
+
+# Auto-version management
+auto_bump: true
+bump_type: "patch"
+
+# Multi-provider configuration
+multi_provider:
+  enabled_providers: ["solana", "rust", "python"]
+  execution_order: ["rust", "python", "solana"]
+  fail_fast: false
+  merge_strategies:
+    version: "highest"
+    build: "sequential"
+    tests: "parallel"
+
+# Universal tools for all languages
+tools:
+  # Rust tools
+  - name: "cargo-fmt"
+    check:
+      command: ["cargo", "fmt", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Cargo formatter"
+    fix_command: ["cargo", "fmt", "--all"]
+    priority: 10
+    description: "Rust code formatter"
+  
+  - name: "cargo-clippy"
+    check:
+      command: ["cargo", "clippy", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Cargo linter"
+    fix_command: ["cargo", "clippy", "--all", "--fix", "--allow-dirty"]
+    priority: 20
+    description: "Rust linter and auto-fixer"
+  
+  - name: "cargo-build"
+    check:
+      command: ["cargo", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Cargo build system"
+    fix_command: ["cargo", "build", "--release"]
+    priority: 30
+    description: "Rust release build"
+  
+  # Python tools
+  - name: "ruff"
+    check:
+      command: ["ruff", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Python linter"
+    fix_command: ["ruff", "check", "--fix", "."]
+    file_patterns: ["*.py"]
+    priority: 15
+    description: "Python linter and formatter"
+  
+  - name: "black"
+    check:
+      command: ["black", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Python formatter"
+    fix_command: ["black", "."]
+    file_patterns: ["*.py"]
+    priority: 25
+    description: "Python code formatter"
+  
+  # Solana-specific tools
+  - name: "anchor-build"
+    check:
+      command: ["anchor", "--version"]
+      expected_exit: 0
+      timeout: 10
+      description: "Anchor framework"
+    fix_command: ["anchor", "build"]
+    priority: 35
+    description: "Anchor program build"
+  
+  - name: "anchor-test"
+    check:
+      command: ["anchor", "--version"]
+      expected_exit: 0
+      timeout: 10
+      description: "Anchor framework"
+    fix_command: ["anchor", "test"]
+    priority: 40
+    description: "Anchor program tests"
+
+# Auto-fix configuration
+auto_fix: true
+
+# Message generation with Solana context
+message_style: "conventional"
+llm_enabled: true
+llm_context:
+  description: "Solana DeFi project with Anchor programs and Python client"
+  conventions: "Use scope like 'program', 'client', 'tests', 'anchor'"
+  focus_areas: ["gas optimization", "security", "program updates", "client improvements"]
+
+# Build commands for hybrid project
+build_commands:
+  - ["cargo", "build-bpf", "--manifest-path=programs/program_name/Cargo.toml"]
+  - ["anchor", "build"]
+  - ["python", "-m", "build"]
+
+# Pre-commit hooks
+pre_commit_hooks:
+  - ["cargo", "fmt", "--all"]
+  - ["cargo", "clippy", "--all", "--fix", "--allow-dirty"]
+  - ["ruff", "check", "--fix", "."]
+  - ["anchor", "build"]
+
+# Post-commit hooks
+post_commit_hooks:
+  - ["anchor", "test"]
+  - ["python", "-m", "pytest"]

@@ -1,0 +1,75 @@
+# Dugger-Schema Configuration Example
+# This file demonstrates the universal configuration for any project type
+
+project_type: "python"  # Auto-detected, can be overridden
+
+# Anchor files for project detection (auto-generated if not specified)
+anchor_files:
+  - path: "pyproject.toml"
+    weight: 20
+    provider: "python"
+  - path: "requirements.txt"
+    weight: 15
+    provider: "python"
+
+# Version configuration (supports any format)
+version_formats:
+  - file_path: "pyproject.toml"
+    pattern: 'version\s*=\s*"([^"]+)"'
+    replacement: 'version = "{new_version}"'
+    encoding: "utf-8"
+
+# Auto-version management
+auto_bump: false
+bump_type: "patch"  # major, minor, patch
+
+# Universal tool configuration (language-agnostic)
+tools:
+  - name: "ruff"
+    check:
+      command: ["ruff", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Python linter and formatter"
+    fix_command: ["ruff", "check", "--fix", "."]
+    file_patterns: ["*.py"]
+    priority: 10
+    description: "Python linter and auto-fixer"
+  
+  - name: "black"
+    check:
+      command: ["black", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Python code formatter"
+    fix_command: ["black", "."]
+    file_patterns: ["*.py"]
+    priority: 20
+    description: "Python code formatter"
+
+# Auto-fix configuration
+auto_fix: true
+
+# Message generation
+message_style: "conventional"  # conventional, semantic, custom
+llm_enabled: false
+llm_context:
+  description: "A Python project with automated development workflow"
+  conventions: "Use conventional commits with appropriate scope"
+
+# Multi-provider support (for hybrid projects)
+multi_provider:
+  # Example for Solana project with Rust + Python:
+  # enabled_providers: ["rust", "python"]
+  # execution_order: ["rust", "python"]
+  # fail_fast: false
+  # merge_strategies:
+  #   version: "highest"
+  #   build: "sequential"
+
+# Build commands (run before commit if needed)
+build_commands: []
+
+# Hooks
+pre_commit_hooks: []
+post_commit_hooks: []
