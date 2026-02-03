@@ -1,0 +1,133 @@
+# Dugger-Schema for Chrome Extension Project
+# Example configuration for projects like ConvosoTeamExtension
+
+project_type: "chrome-extension"
+
+# Anchor files for Chrome extension detection
+anchor_files:
+  - path: "manifest.json"
+    weight: 25
+    provider: "chrome"
+    metadata:
+      manifest_version: 3
+  - path: "popup.html"
+    weight: 10
+    provider: "chrome"
+    metadata:
+      component: "popup"
+  - path: "content.js"
+    weight: 10
+    provider: "chrome"
+    metadata:
+      component: "content"
+  - path: "background.js"
+    weight: 5
+    provider: "chrome"
+    metadata:
+      component: "background"
+
+# Version configuration for Chrome extension
+version_formats:
+  - file_path: "manifest.json"
+    pattern: '"version"\s*:\s*"([^"]+)"'
+    replacement: '"version": "{new_version}"'
+    encoding: "utf-8"
+
+# Auto-version management with Convoso-style release versions
+auto_bump: true
+bump_type: "patch"
+
+# Universal tools for Chrome extension development
+tools:
+  # JavaScript/TypeScript tools
+  - name: "eslint"
+    check:
+      command: ["npx", "eslint", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "JavaScript linter"
+    fix_command: ["npx", "eslint", "--fix", "."]
+    file_patterns: ["*.js", "*.mjs", "*.ts"]
+    priority: 10
+    description: "JavaScript/TypeScript linter and auto-fixer"
+  
+  - name: "prettier"
+    check:
+      command: ["npx", "prettier", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "Code formatter"
+    fix_command: ["npx", "prettier", "--write", "."]
+    file_patterns: ["*.js", "*.mjs", "*.ts", "*.json", "*.html", "*.css"]
+    priority: 20
+    description: "Code formatter for web files"
+  
+  # TypeScript compilation
+  - name: "tsc"
+    check:
+      command: ["npx", "tsc", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "TypeScript compiler"
+    fix_command: ["npx", "tsc", "--noEmit"]
+    file_patterns: ["*.ts"]
+    priority: 30
+    description: "TypeScript type checking"
+  
+  # HTML/CSS validation
+  - name: "htmlhint"
+    check:
+      command: ["npx", "htmlhint", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "HTML linter"
+    fix_command: ["npx", "htmlhint", "."]
+    file_patterns: ["*.html"]
+    priority: 15
+    description: "HTML validation and linting"
+  
+  - name: "stylelint"
+    check:
+      command: ["npx", "stylelint", "--version"]
+      expected_exit: 0
+      timeout: 5
+      description: "CSS linter"
+    fix_command: ["npx", "stylelint", "--fix", "."]
+    file_patterns: ["*.css", "*.scss"]
+    priority: 25
+    description: "CSS linting and auto-fixing"
+
+# Auto-fix configuration
+auto_fix: true
+
+# Message generation with Chrome extension context
+message_style: "conventional"
+llm_enabled: true
+llm_context:
+  description: "Chrome extension with popup, content scripts, and background service worker"
+  conventions: "Use scope like 'manifest', 'popup', 'content', 'background', 'storage'"
+  focus_areas: ["UI improvements", "storage changes", "manifest updates", "security fixes"]
+
+# Build commands for Chrome extension
+build_commands:
+  - ["npm", "run", "build"]
+  - ["npm", "run", "release"]
+
+# Pre-commit hooks
+pre_commit_hooks:
+  - ["npx", "eslint", "--fix", "."]
+  - ["npx", "prettier", "--write", "."]
+  - ["npx", "tsc", "--noEmit"]
+
+# Post-commit hooks
+post_commit_hooks:
+  - ["npm", "run", "test"]
+  - ["npm", "run", "validate-manifest"]
+
+# Chrome extension specific settings
+extension_config:
+  manifest_validation: true
+  icon_validation: true
+  permissions_check: true
+  size_limit_check: true
+  release_build: true
