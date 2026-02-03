@@ -11,6 +11,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from .config import DGTConfig, LoggingConfig
+from .message_generator import MessageGenerator
+from .auto_fixer import AutoFixer
+from .git_operations import GitOperations
+from .versioning import VersionManager
 from ..providers.base import BaseProvider, CheckResult, ProviderType
 from ..providers.python import PythonProvider
 from ..providers.rust import RustProvider
@@ -27,6 +31,12 @@ class DGTOrchestrator:
         
         self.logger = logger.bind(orchestrator=True)
         self.console = Console()
+        
+        # Initialize core components
+        self.git_ops = GitOperations(self.config)
+        self.message_generator = MessageGenerator(self.config)
+        self.auto_fixer = AutoFixer(self.config)
+        self.version_manager = VersionManager(self.config)
         
         # Initialize Git repository
         try:
@@ -72,27 +82,31 @@ class DGTOrchestrator:
         return None
     
     def get_git_status(self) -> Dict[str, Any]:
-        """Get current Git status."""
+        """Get current Git status using enhanced GitOperations."""
         try:
-            # Check if we're in a Git repository
-            if self.repo.is_dirty(untracked_files=True):
-                changed_files = [item.a_path for item in self.repo.index.diff(None)]
-                untracked_files = self.repo.untracked_files()
-                staged_files = [item.a_path for item in self.repo.index.diff("HEAD")]
+            # Use enhanced GitOperations for comprehensive status
+            is_dirty = self.git_ops.is_dirty()
+            has_staged = self.git_ops.has_staged_changes()
+            
+            if is_dirty:
+                changed_files = self.git_ops.get_changed_files(staged=False)
+                staged_files = self.git_ops.get_changed_files(staged=True)
+                current_branch = self.git_ops.get_current_branch()
                 
                 return {
                     "is_dirty": True,
                     "changed_files": changed_files,
-                    "untracked_files": untracked_files,
                     "staged_files": staged_files,
-                    "current_branch": self.repo.active_branch.name,
-                    "has_staged_changes": len(staged_files) > 0
+                    "current_branch": current_branch,
+                    "has_staged_changes": has_staged,
+                    "remote_url": self.git_ops.get_remote_url()
                 }
             else:
                 return {
                     "is_dirty": False,
-                    "current_branch": self.repo.active_branch.name,
-                    "has_staged_changes": False
+                    "current_branch": self.git_ops.get_current_branch(),
+                    "has_staged_changes": False,
+                    "remote_url": self.git_ops.get_remote_url()
                 }
         except Exception as e:
             self.logger.error(f"Failed to get Git status: {e}")
@@ -129,13 +143,13 @@ class DGTOrchestrator:
                     raise ValueError(f"Environment validation failed: {env_validation.message}")
                 progress.update(task, description="Environment validated ✓")
                 
-                # Step 2: Get Git status and staged files
+                # Step 2: Get Git status and stage files
                 task = progress.add_task("Checking Git status...", total=None)
                 git_status = self.get_git_status()
                 
                 if auto_add and git_status.get("is_dirty", False):
-                    # Add all changes
-                    self.repo.git.add("-A")
+                    # Add all changes using enhanced GitOperations
+                    self.git_ops.stage_all()
                     git_status = self.get_git_status()  # Refresh status
                 
                 staged_files = [Path(f) for f in git_status.get("staged_files", [])]
@@ -145,7 +159,19 @@ class DGTOrchestrator:
                 
                 progress.update(task, description=f"Found {len(staged_files)} staged files ✓")
                 
-                # Step 3: Run pre-flight checks
+                # Step 3: Run auto-fixes (enhanced from Brownbook pattern)
+                task = progress.add_task("Running auto-fixes...", total=None)
+                fixes_applied = self.auto_fixer.run_all_fixes(staged_files)
+                
+                if fixes_applied:
+                    # Re-stage files after fixes
+                    self.git_ops.stage_all()
+                    staged_files = [Path(f) for f in self.git_ops.get_changed_files(staged=True)]
+                    progress.update(task, description="Auto-fixes applied ✓")
+                else:
+                    progress.update(task, description="No fixes needed ✓")
+                
+                # Step 4: Run pre-flight checks
                 task = progress.add_task("Running pre-flight checks...", total=None)
                 pre_flight_results = self.active_provider.run_pre_flight_checks(staged_files)
                 
@@ -160,20 +186,43 @@ class DGTOrchestrator:
                 ]
                 progress.update(task, description="Pre-flight checks passed ✓")
                 
-                # Step 4: Commit changes
-                task = progress.add_task("Committing changes...", total=None)
-                commit_message = self.active_provider.format_commit_message(message)
-                commit = self.repo.index.commit(commit_message)
-                workflow_result["commit_hash"] = commit.hexsha
-                progress.update(task, description=f"Committed {commit.hexsha[:8]} ✓")
+                # Step 5: Generate enhanced commit message
+                task = progress.add_task("Generating commit message...", total=None)
+                line_numbers = self.git_ops.get_changed_line_numbers()
+                commit_message = self.message_generator.generate_smart_message(
+                    [str(f) for f in staged_files], 
+                    line_numbers,
+                    use_llm=self.config.provider_config.custom_settings.get("use_llm", False)
+                )
                 
-                # Step 5: Run post-flight checks
+                # Apply provider-specific formatting
+                formatted_message = self.active_provider.format_commit_message(commit_message)
+                progress.update(task, description="Commit message generated ✓")
+                
+                # Step 6: Commit changes
+                task = progress.add_task("Committing changes...", total=None)
+                commit = self.git_ops.commit(formatted_message, no_verify=True)
+                if not commit:
+                    raise ValueError("Git commit failed")
+                
+                commit_hash = self.git_ops.get_last_commit_hash()
+                workflow_result["commit_hash"] = commit_hash
+                progress.update(task, description=f"Committed {commit_hash[:8]} ✓")
+                
+                # Step 7: Version management (if enabled)
+                if self.config.provider_config.custom_settings.get("auto_bump_version", False):
+                    task = progress.add_task("Bumping version...", total=None)
+                    new_version = self.version_manager.bump_version()
+                    self.git_ops.stage_all()
+                    version_commit = self.git_ops.commit(f"chore: Bump version to {new_version}", no_verify=True)
+                    progress.update(task, description=f"Version bumped to {new_version} ✓")
+                
+                # Step 8: Run post-flight checks
                 task = progress.add_task("Running post-flight checks...", total=None)
-                post_flight_results = self.active_provider.run_post_flight_checks(commit.hexsha)
+                post_flight_results = self.active_provider.run_post_flight_checks(commit_hash)
                 
                 failed_post_checks = [r for r in post_flight_results if not r.success]
                 if failed_post_checks:
-                    # Log warnings but don't fail the workflow
                     warning_messages = [f.message for f in failed_post_checks]
                     self.logger.warning(f"Post-flight warnings: {'; '.join(warning_messages)}")
                 
@@ -183,15 +232,16 @@ class DGTOrchestrator:
                 ]
                 progress.update(task, description="Post-flight checks completed ✓")
                 
-                # Step 6: Push to remote if configured
+                # Step 9: Push to remote if configured
                 if self.config.auto_push:
                     task = progress.add_task("Pushing to remote...", total=None)
-                    try:
-                        origin = self.repo.remote(name="origin")
-                        origin.push()
+                    branch = git_status["current_branch"]
+                    if self.git_ops.pull(branch):
+                        progress.update(task, description="Pulled latest changes ✓")
+                    
+                    if self.git_ops.push(branch):
                         progress.update(task, description="Pushed to remote ✓")
-                    except Exception as e:
-                        self.logger.warning(f"Failed to push to remote: {e}")
+                    else:
                         progress.update(task, description="Push failed (continuing) ⚠️")
             
             workflow_result["success"] = True
