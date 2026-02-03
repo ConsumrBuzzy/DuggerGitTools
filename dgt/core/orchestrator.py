@@ -257,13 +257,14 @@ class DGTOrchestrator:
         return workflow_result
     
     def run_dry_run(self, message: str) -> Dict[str, Any]:
-        """Run a dry-run of the commit workflow without making changes."""
+        """Run a dry-run of the commit workflow with enhanced preview."""
         dry_run_result = {
             "success": False,
             "message": "",
             "would_commit_files": [],
             "pre_flight_results": [],
             "formatted_commit_message": "",
+            "version_info": {},
             "execution_time": 0.0
         }
         
@@ -280,15 +281,26 @@ class DGTOrchestrator:
             would_commit_files = []
             if git_status.get("changed_files"):
                 would_commit_files.extend(git_status["changed_files"])
-            if git_status.get("untracked_files"):
-                would_commit_files.extend(git_status["untracked_files"])
+            if git_status.get("staged_files"):
+                would_commit_files.extend(git_status["staged_files"])
             
-            # Format commit message
-            formatted_message = self.active_provider.format_commit_message(message)
+            # Generate enhanced commit message
+            line_numbers = self.git_ops.get_changed_line_numbers()
+            formatted_message = self.message_generator.generate_smart_message(
+                would_commit_files, 
+                line_numbers,
+                use_llm=self.config.provider_config.custom_settings.get("use_llm", False)
+            )
+            
+            # Apply provider-specific formatting
+            final_message = self.active_provider.format_commit_message(formatted_message)
             
             # Run pre-flight checks on would-be committed files
             staged_files = [Path(f) for f in would_commit_files]
             pre_flight_results = self.active_provider.run_pre_flight_checks(staged_files)
+            
+            # Get version information
+            version_info = self.version_manager.get_version_info()
             
             dry_run_result.update({
                 "success": True,
@@ -298,7 +310,8 @@ class DGTOrchestrator:
                     {"success": r.success, "message": r.message, "execution_time": r.execution_time}
                     for r in pre_flight_results
                 ],
-                "formatted_commit_message": formatted_message,
+                "formatted_commit_message": final_message,
+                "version_info": version_info,
                 "execution_time": time.time() - start_time
             })
             
@@ -310,7 +323,7 @@ class DGTOrchestrator:
         return dry_run_result
     
     def get_project_info(self) -> Dict[str, Any]:
-        """Get comprehensive project information."""
+        """Get comprehensive project information with enhanced details."""
         info = {
             "project_root": str(self.config.project_root),
             "active_provider": self.active_provider.provider_type.value if self.active_provider else None,
@@ -320,6 +333,13 @@ class DGTOrchestrator:
                 "auto_push": self.config.auto_push,
                 "dry_run": self.config.dry_run,
                 "commit_message_template": self.config.commit_message_template
+            },
+            "version_info": self.version_manager.get_version_info(),
+            "capabilities": {
+                "has_llm": self.config.provider_config.custom_settings.get("use_llm", False),
+                "auto_bump_version": self.config.provider_config.custom_settings.get("auto_bump_version", False),
+                "auto_fixes": True,
+                "line_number_tracking": True
             }
         }
         
