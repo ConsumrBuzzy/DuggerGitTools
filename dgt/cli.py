@@ -1,26 +1,36 @@
-"""Command-line interface for DGT using Typer."""
+#!/usr/bin/env python3
+"""DuggerCore-Universal CLI - Language-Agnostic DevOps Orchestration."""
 
 import sys
 from pathlib import Path
+
+# Add DGT to path
+dgt_path = Path(__file__).parent
+sys.path.insert(0, str(dgt_path))
+
 from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.tree import Tree
 
-from .core.config import DGTConfig
-from .core.orchestrator import DGTOrchestrator
+from dgt.core.config import DGTConfig
+from dgt.core.orchestrator import DGTOrchestrator
+from dgt.core.multi_provider_orchestrator import MultiProviderOrchestrator
+from dgt.core.schema import SchemaLoader
 
+# Import init CLI
+from .cli_init import app as init_app
+
+console = Console()
 app = typer.Typer(
     name="dgt",
-    help="DuggerCore Git Tools - Modular DevOps Orchestrator",
+    help="DuggerCore-Universal CLI - Language-Agnostic DevOps Orchestration",
     no_args_is_help=True,
     rich_markup_mode="rich"
 )
-console = Console()
 
+# Add init as a subcommand
+app.add_typer(init_app, name="init", help="Initialize new DuggerCore projects")
 
 @app.command()
 def commit(
