@@ -1,0 +1,13 @@
+{
+  "name": "rust",
+  "project_type": "rust", 
+  "description": "Rust project with Cargo and standard tooling",
+  "version": "1.0.0",
+  "created_at": "2026-02-02T22:45:00",
+  "features": [
+    "Cargo configuration",
+    "Standard directory structure", 
+    "Rust toolchain integration",
+    "Auto-formatting and linting"
+  ]
+}
