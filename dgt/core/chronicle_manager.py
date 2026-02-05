@@ -5,11 +5,10 @@ Rotates by frequency (Day/Week/Month/Phase) and size to keep IDE context clean.
 """
 
 import json
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Literal
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 
 from loguru import logger
 
@@ -25,18 +24,18 @@ class RotationFrequency(str, Enum):
 @dataclass
 class ProjectPulse:
     """Machine-readable project heartbeat snapshot."""
-    
+
     project: str
     last_heartbeat: str
     current_phase: str
-    metrics: Dict[str, any]
+    metrics: dict[str, any]
     ide_status: str
 
 
 @dataclass
 class ChronicleEntry:
     """Single chronicle entry."""
-    
+
     timestamp: str
     commit_message: str
     files_changed: int
@@ -59,13 +58,13 @@ class ChronicleManager:
     
     Carry-over: Open TODOs migrate to new hot log on rotation.
     """
-    
+
     def __init__(
         self,
         project_root: Path,
         frequency: RotationFrequency = RotationFrequency.WEEK,
         max_size_kb: int = 50,
-        retention_limit: int = 10
+        retention_limit: int = 10,
     ):
         """Initialize ChronicleManager.
         
@@ -80,14 +79,14 @@ class ChronicleManager:
         self.max_size_kb = max_size_kb
         self.retention_limit = retention_limit
         self.logger = logger.bind(component="ChronicleManager")
-        
+
         self.hot_log = project_root / "CHRONICLE_LATEST.md"
         self.archive_dir = project_root / "PLANNING" / "archive"
         self.pulse_file = project_root / "PROJECT_PULSE.json"
-        
+
         # Ensure archive directory exists
         self.archive_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def _get_current_period_label(self) -> str:
         """Get current period label for archive naming.
         
@@ -95,17 +94,17 @@ class ChronicleManager:
             Period label (e.g., "2026_W06", "2026_02", "2026_035")
         """
         now = datetime.now()
-        
+
         if self.frequency == RotationFrequency.DAY:
             return now.strftime("%Y_%j")  # Year + day of year
-        elif self.frequency == RotationFrequency.WEEK:
+        if self.frequency == RotationFrequency.WEEK:
             return now.strftime("%Y_W%U")  # Year + week number
-        elif self.frequency == RotationFrequency.MONTH:
+        if self.frequency == RotationFrequency.MONTH:
             return now.strftime("%Y_%m")  # Year + month
-        else:  # PHASE
-            # Phase rotations are manual via force_rotate()
-            return now.strftime("%Y_%m_%d")
-    
+        # PHASE
+        # Phase rotations are manual via force_rotate()
+        return now.strftime("%Y_%m_%d")
+
     def _should_rotate(self) -> bool:
         """Check if rotation is needed.
         
@@ -114,19 +113,19 @@ class ChronicleManager:
         """
         if not self.hot_log.exists():
             return False
-        
+
         # Size guard
         size_kb = self.hot_log.stat().st_size / 1024
         if size_kb > self.max_size_kb:
             self.logger.info(f"Size guard triggered: {size_kb:.1f}KB > {self.max_size_kb}KB")
             return True
-        
+
         # Time-based rotation (check if period has changed)
         # Read last entry timestamp from hot log
         try:
-            with self.hot_log.open('r', encoding='utf-8') as f:
+            with self.hot_log.open("r", encoding="utf-8") as f:
                 lines = f.readlines()
-                
+
             # Find last entry timestamp
             last_timestamp = None
             for line in reversed(lines):
@@ -134,20 +133,20 @@ class ChronicleManager:
                     timestamp_str = line.split("**Timestamp**:")[1].strip()
                     last_timestamp = datetime.fromisoformat(timestamp_str)
                     break
-            
+
             if last_timestamp:
                 current_period = self._get_current_period_label()
                 last_period = self._format_period_label(last_timestamp)
-                
+
                 if current_period != last_period:
                     self.logger.info(f"Period boundary crossed: {last_period} -> {current_period}")
                     return True
-        
+
         except Exception as e:
             self.logger.debug(f"Could not check rotation timing: {e}")
-        
+
         return False
-    
+
     def _format_period_label(self, dt: datetime) -> str:
         """Format datetime to period label.
         
@@ -159,14 +158,13 @@ class ChronicleManager:
         """
         if self.frequency == RotationFrequency.DAY:
             return dt.strftime("%Y_%j")
-        elif self.frequency == RotationFrequency.WEEK:
+        if self.frequency == RotationFrequency.WEEK:
             return dt.strftime("%Y_W%U")
-        elif self.frequency == RotationFrequency.MONTH:
+        if self.frequency == RotationFrequency.MONTH:
             return dt.strftime("%Y_%m")
-        else:
-            return dt.strftime("%Y_%m_%d")
-    
-    def _extract_open_todos(self) -> List[str]:
+        return dt.strftime("%Y_%m_%d")
+
+    def _extract_open_todos(self) -> list[str]:
         """Extract open TODOs from current hot log for carry-over.
         
         Returns:
@@ -174,28 +172,28 @@ class ChronicleManager:
         """
         if not self.hot_log.exists():
             return []
-        
+
         todos = []
-        
+
         try:
-            with self.hot_log.open('r', encoding='utf-8') as f:
+            with self.hot_log.open("r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Extract TODOs section
             if "## Open TODOs" in content:
                 todos_section = content.split("## Open TODOs")[1].split("##")[0]
-                
+
                 for line in todos_section.splitlines():
                     line = line.strip()
                     if line.startswith("- [ ]"):
                         todos.append(line)
-        
+
         except Exception as e:
             self.logger.debug(f"Could not extract TODOs: {e}")
-        
+
         return todos
-    
-    def rotate(self, phase_label: Optional[str] = None) -> Optional[Path]:
+
+    def rotate(self, phase_label: str | None = None) -> Path | None:
         """Rotate hot log to cold storage.
         
         Args:
@@ -206,23 +204,23 @@ class ChronicleManager:
         """
         if not self.hot_log.exists():
             return None
-        
+
         # Determine archive name
         if phase_label:
             archive_name = f"chronicle_{phase_label}.md"
         else:
             period_label = self._get_current_period_label()
             archive_name = f"chronicle_{period_label}.md"
-        
+
         archive_path = self.archive_dir / archive_name
-        
+
         # Extract open TODOs for carry-over
         open_todos = self._extract_open_todos()
-        
+
         # Move hot log to archive
         self.hot_log.rename(archive_path)
         self.logger.info(f"Rotated chronicle to {archive_path}")
-        
+
         # Create new hot log with carry-over TODOs
         if open_todos:
             header = f"""# Project Chronicle
@@ -239,27 +237,27 @@ class ChronicleManager:
 ## Entries
 
 """
-            with self.hot_log.open('w', encoding='utf-8') as f:
+            with self.hot_log.open("w", encoding="utf-8") as f:
                 f.write(header)
-        
+
         # Prune old archives
         self._prune_archives()
-        
+
         return archive_path
-    
+
     def _prune_archives(self) -> None:
         """Prune old archives beyond retention limit."""
         archives = sorted(
             self.archive_dir.glob("chronicle_*.md"),
             key=lambda p: p.stat().st_mtime,
-            reverse=True
+            reverse=True,
         )
-        
+
         if len(archives) > self.retention_limit:
             for archive in archives[self.retention_limit:]:
                 self.logger.info(f"Pruning old archive: {archive.name}")
                 archive.unlink()
-    
+
     def add_entry(
         self,
         commit_message: str,
@@ -268,7 +266,7 @@ class ChronicleManager:
         lines_removed: int = 0,
         todo_count: int = 0,
         bug_count: int = 0,
-        fixme_count: int = 0
+        fixme_count: int = 0,
     ) -> None:
         """Add entry to chronicle.
         
@@ -284,7 +282,7 @@ class ChronicleManager:
         # Check rotation
         if self._should_rotate():
             self.rotate()
-        
+
         # Create hot log if not exists
         if not self.hot_log.exists():
             header = f"""# Project Chronicle
@@ -297,12 +295,12 @@ class ChronicleManager:
 ## Entries
 
 """
-            with self.hot_log.open('w', encoding='utf-8') as f:
+            with self.hot_log.open("w", encoding="utf-8") as f:
                 f.write(header)
-        
+
         # Format entry
         timestamp = datetime.now().isoformat()
-        
+
         entry = f"""
 ### {commit_message}
 
@@ -314,18 +312,18 @@ class ChronicleManager:
 ---
 
 """
-        
+
         # Append entry
-        with self.hot_log.open('a', encoding='utf-8') as f:
+        with self.hot_log.open("a", encoding="utf-8") as f:
             f.write(entry)
-        
+
         self.logger.info(f"Added chronicle entry: {commit_message[:50]}...")
-    
+
     def update_pulse(
         self,
         current_phase: str,
-        metrics: Dict[str, any],
-        ide_status: str
+        metrics: dict[str, any],
+        ide_status: str,
     ) -> None:
         """Update PROJECT_PULSE.json.
         
@@ -339,14 +337,14 @@ class ChronicleManager:
             "last_heartbeat": datetime.now().isoformat(),
             "current_phase": current_phase,
             "metrics": metrics,
-            "ide_status": ide_status
+            "ide_status": ide_status,
         }
-        
-        with self.pulse_file.open('w', encoding='utf-8') as f:
+
+        with self.pulse_file.open("w", encoding="utf-8") as f:
             json.dump(pulse, f, indent=2)
-        
+
         self.logger.info("Updated PROJECT_PULSE.json")
-    
+
     def force_rotate(self, phase_label: str) -> Path:
         """Force rotation with custom phase label.
         
@@ -358,8 +356,8 @@ class ChronicleManager:
         """
         self.logger.info(f"Forcing phase rotation: {phase_label}")
         return self.rotate(phase_label=phase_label)
-    
-    def get_recent_entries(self, limit: int = 10) -> List[str]:
+
+    def get_recent_entries(self, limit: int = 10) -> list[str]:
         """Get recent chronicle entries.
         
         Args:
@@ -370,17 +368,17 @@ class ChronicleManager:
         """
         if not self.hot_log.exists():
             return []
-        
+
         try:
-            with self.hot_log.open('r', encoding='utf-8') as f:
+            with self.hot_log.open("r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Split by entry markers
             entries = content.split("###")[1:]  # Skip header
-            
+
             # Return most recent
             return entries[-limit:]
-        
+
         except Exception as e:
             self.logger.error(f"Could not read entries: {e}")
             return []
