@@ -166,6 +166,49 @@ def main():
             for warning in report.warnings:
                 print(f"   - {warning}")
     
+    elif command == "ide-sync":
+        from dgt.core.ide_bridge import IDEBridge
+        
+        # Get target directory (default to current)
+        if len(sys.argv) > 2 and not sys.argv[2].startswith("--"):
+            target_dir = Path(sys.argv[2])
+        else:
+            target_dir = Path.cwd()
+        
+        if not target_dir.exists():
+            print(f"❌ Directory not found: {target_dir}")
+            return
+        
+        overwrite = "--force" in sys.argv
+        
+        print(f"🔗 Syncing IDE rules: {target_dir.name}")
+        print("   [Cursor + Windsurf + Antigravity + Kiro + Generic...]")
+        print()
+        
+        # Run sync
+        bridge = IDEBridge(target_dir)
+        results = bridge.sync_all_ides(overwrite=overwrite)
+        
+        # Display results
+        print("📊 Sync Complete")
+        print()
+        
+        for result in results:
+            if result.error:
+                print(f"❌ {result.ide_name}: {result.error}")
+            elif result.created:
+                print(f"✅ {result.ide_name}: Created {result.file_path.name}")
+            elif result.updated:
+                print(f"🔄 {result.ide_name}: Updated {result.file_path.name}")
+            elif result.skipped:
+                print(f"⏭️  {result.ide_name}: Skipped (already exists)")
+        
+        print()
+        print("💡 Now open this project in any IDE - the AI will know your persona & protocol!")
+        
+        if not overwrite:
+            print("   Use --force to overwrite existing IDE rules")
+    
     elif command in ["help", "-h", "--help"]:
         print_help()
     
@@ -185,6 +228,7 @@ Usage:
   dgt-add scan                         Run TODO extraction
   dgt-add assimilate [path]            Assimilate project into DGT chassis
   dgt-add audit [path]                 Run Beast Mode security audit
+  dgt-add ide-sync [path]              Sync AI IDE rules (Cursor/Windsurf/etc)
 
 Examples:
   dgt-add todo DEVOPS "Fix venv creation bug"
@@ -195,6 +239,8 @@ Examples:
   dgt-add assimilate C:/Projects/Legacy --dry-run
   dgt-add audit                        # Audit current directory
   dgt-add audit C:/Projects/Legacy     # Audit specific project
+  dgt-add ide-sync                     # Sync IDE rules for current project
+  dgt-add ide-sync --force             # Force overwrite existing rules
 
 Notes:
   - TODOs are appended to TODO.md in TaskExtractor format
@@ -202,6 +248,7 @@ Notes:
   - Scan generates TODO_REPORT.md from all code annotations
   - Assimilate injects DGT chassis (dugger.yaml, .gitignore, PLANNING/)
   - Audit runs Secret Sentry + Rot-Detector + Vulture (creates AUDIT_REPORT.md)
+  - IDE sync creates .cursorrules, .windsurfrules, .antigravity/, .kiro/, .ai-rules
 """
     print(help_text)
 

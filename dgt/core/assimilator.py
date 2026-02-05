@@ -328,6 +328,20 @@ Use `dgt-add plan "path/to/file.md"` to ingest planning documents.
         # Step 4: Relink infrastructure
         self.relink_infrastructure(project_type)
         
+        # Step 5: Sync IDE rules (ADR-007)
+        try:
+            from .ide_bridge import IDEBridge
+            
+            bridge = IDEBridge(self.target_dir)
+            ide_results = bridge.sync_all_ides(overwrite=False)
+            
+            created_count = sum(1 for r in ide_results if r.created)
+            if created_count > 0:
+                self.changes_made.append(f"Synced IDE rules to {created_count} AI IDEs")
+        
+        except Exception as e:
+            self.warnings.append(f"IDE sync failed: {e}")
+        
         # Success
         success = len(self.errors) == 0
         
