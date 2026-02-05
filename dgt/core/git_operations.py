@@ -151,6 +151,39 @@ class GitOperations:
             self.logger.error(f"Failed to get diff summary: {e}")
             return ""
     
+    def get_diff_stat(self) -> Dict[str, int]:
+        """Get diff statistics (lines added/removed).
+        
+        Returns:
+            Dict with 'lines_added' and 'lines_removed'
+        """
+        try:
+            result = self._run_command(["diff", "--cached", "--numstat"])
+            
+            lines_added = 0
+            lines_removed = 0
+            
+            for line in result.stdout.splitlines():
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        try:
+                            added = int(parts[0])
+                            removed = int(parts[1])
+                            lines_added += added
+                            lines_removed += removed
+                        except ValueError:
+                            # Skip binary files (marked with '-')
+                            continue
+            
+            return {
+                "lines_added": lines_added,
+                "lines_removed": lines_removed
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to get diff stat: {e}")
+            return {"lines_added": 0, "lines_removed": 0}
+    
     def get_changed_line_numbers(self) -> Dict[str, str]:
         """
         Extract line numbers for changed files from git diff.

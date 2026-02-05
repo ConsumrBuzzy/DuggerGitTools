@@ -15,6 +15,8 @@ from .universal_message_generator import UniversalMessageGenerator
 from .universal_versioning import MultiProviderVersionManager
 from .git_operations import GitOperations
 from .lint_manager import LintingManager
+from .chronicle_manager import ChronicleManager, RotationFrequency
+from .task_extractor import TaskExtractor
 from ..services.documentation_service import DocumentationService
 from ..services.release_service import ReleaseService
 
@@ -38,6 +40,15 @@ class MultiProviderOrchestrator:
         self.auto_fixer = MultiProviderAutoFixer(config, schema)
         self.version_manager = MultiProviderVersionManager(config, schema)
         self.linting_manager = LintingManager(config.project_root)
+        
+        # Chronicle manager (ADR-008)
+        chronicle_config = schema.chronicle if hasattr(schema, 'chronicle') else {}
+        self.chronicle = ChronicleManager(
+            config.project_root,
+            frequency=RotationFrequency(chronicle_config.get('frequency', 'week')),
+            max_size_kb=chronicle_config.get('max_size_kb', 50),
+            retention_limit=chronicle_config.get('retention_limit', 10)
+        )
         
         # Initialize service layer (SRP compliance)
         self.doc_service = DocumentationService(config.project_root)
@@ -211,6 +222,47 @@ class MultiProviderOrchestrator:
                         progress.update(task, description="Pushed to remote ✓")
                     else:
                         progress.update(task, description="Push failed (continuing) ⚠️")
+            
+            # Step 8: Update Chronicle (ADR-008)
+            task = progress.add_task("Updating chronicle...", total=None)
+            try:
+                # Extract telemetry
+                diff_stat = self.git_ops.get_diff_stat()
+                files_changed = len(staged_files)
+                
+                # Extract TODO counts
+                task_extractor = TaskExtractor(self.config.project_root)
+                annotations = task_extractor.scan_project()
+                todo_count = len([a for a in annotations if a.annotation_type == "TODO"])
+                bug_count = len([a for a in annotations if a.annotation_type == "BUG"])
+                fixme_count = len([a for a in annotations if a.annotation_type == "FIXME"])
+                
+                # Add chronicle entry
+                self.chronicle.add_entry(
+                    commit_message=commit_message,
+                    files_changed=files_changed,
+                    lines_added=diff_stat.get("lines_added", 0),
+                    lines_removed=diff_stat.get("lines_removed", 0),
+                    todo_count=todo_count,
+                    bug_count=bug_count,
+                    fixme_count=fixme_count
+                )
+                
+                # Update pulse
+                self.chronicle.update_pulse(
+                    current_phase=current_version,
+                    metrics={
+                        "todos": todo_count,
+                        "bugs": bug_count,
+                        "loc_delta": f"+{diff_stat.get('lines_added', 0)}/-{diff_stat.get('lines_removed', 0)}"
+                    },
+                    ide_status="Synced (Multi-IDE)"
+                )
+                
+                progress.update(task, description="Chronicle updated ✓")
+            except Exception as e:
+                self.logger.warning(f"Chronicle update failed: {e}")
+                progress.update(task, description="Chronicle update skipped ⚠️")
             
             workflow_result["success"] = True
             workflow_result["message"] = f"Successfully committed across {len(self.enabled_providers)} providers"
