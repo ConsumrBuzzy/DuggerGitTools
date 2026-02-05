@@ -7,8 +7,7 @@ from typing import Any
 from git import InvalidGitRepositoryError, Repo
 from loguru import logger
 from rich.console import Console
-from rich.progress import (Progress, SpinnerColumn, TextColumn,
-                           TimeElapsedColumn)
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from ..providers.base import BaseProvider, ProviderType
 from ..providers.chrome import ChromeExtensionProvider
