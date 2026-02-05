@@ -91,26 +91,10 @@ class GlobalDashboard:
     
     def display_dashboard(self) -> None:
         """Display the global dashboard."""
-        # Create layout
+        # Create layout and split structure first
         layout = Layout()
         
-        # Header
-        layout["header"] = Panel(
-            f"[bold blue]DuggerCore-Universal Global Dashboard[/bold blue]\n"
-            f"[dim]Scanning {len(self.projects)} projects at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
-            border_style="blue"
-        )
-        
-        # Summary
-        layout["summary"] = self._create_summary_panel()
-        
-        # Project details
-        layout["projects"] = self._create_projects_panel()
-        
-        # Health issues
-        layout["issues"] = self._create_issues_panel()
-        
-        # Configure layout
+        # Configure layout structure
         layout.split(
             Layout(name="header", size=3),
             Layout(name="main"),
@@ -118,13 +102,24 @@ class GlobalDashboard:
         
         layout["main"].split_row(
             Layout(name="summary", size=30),
-            Layout(name="projects"),
+            Layout(name="projects_section"),
         )
         
-        layout["projects"].split_column(
+        layout["projects_section"].split_column(
             Layout(name="projects", ratio=3),
             Layout(name="issues", ratio=1),
         )
+        
+        # Now assign panels to named sections
+        layout["header"].update(Panel(
+            f"[bold blue]DuggerCore-Universal Global Dashboard[/bold blue]\n"
+            f"[dim]Scanning {len(self.projects)} projects at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
+            border_style="blue"
+        ))
+        
+        layout["summary"].update(self._create_summary_panel())
+        layout["projects"].update(self._create_projects_panel())
+        layout["issues"].update(self._create_issues_panel())
         
         self.console.print(layout)
     
