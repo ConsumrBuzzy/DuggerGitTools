@@ -1,26 +1,31 @@
 # TODO Report
 
-**Total Annotations**: 3
+**Total Annotations**: 4
 
 ## Summary
 
-- **TODO**: 3
+- **TODO**: 4
 
 ---
 
-## TODO (3)
+## TODO (4)
 
-- [dgt\core\task_extractor.py](file:///dgt\core\task_extractor.py#L41):41
+- [dgt\core\task_extractor.py](file:///C:\Github\DuggerGitTools\dgt\core\task_extractor.py#L41):41
   ```
   message
   ```
 
-- [dgt\core\task_extractor.py](file:///dgt\core\task_extractor.py#L43):43
+- [dgt\core\task_extractor.py](file:///C:\Github\DuggerGitTools\dgt\core\task_extractor.py#L43):43
   ```
   message
   ```
 
-- [dgt\core\task_extractor.py](file:///dgt\core\task_extractor.py#L45):45
+- [dgt\core\task_extractor.py](file:///C:\Github\DuggerGitTools\dgt\core\task_extractor.py#L45):45
   ```
   message
+  ```
+
+- [dgt\scripts\todo.py](file:///C:\Github\DuggerGitTools\dgt\scripts\todo.py#L43):43
+  ```
+  [{phase}] {note} (Logged: {timestamp})\n"
   ```
