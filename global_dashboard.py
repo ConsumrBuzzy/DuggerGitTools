@@ -163,11 +163,12 @@ class GlobalDashboard:
             return None
 
     def _analyze_project_health(self, project: dict[str, Any]) -> dict[str, Any]:
-        """Analyze health of a specific project."""
+        """Analyze health of a specific project using DLT scoring."""
         health = {
             "project_name": project["name"],
             "project_type": project["project_type"],
             "overall_health": "unknown",
+            "health_score": 0,
             "issues": [],
             "warnings": [],
             "info": {},
@@ -175,6 +176,62 @@ class GlobalDashboard:
             "version_info": {},
             "git_status": {},
         }
+
+        # Use DLT health scoring if available
+        try:
+            from duggerlink.models.project import DuggerProject
+            from duggerlink.git.operations import GitOperations
+            
+            # Create DuggerProject instance
+            project_path = Path(project["path"])
+            git_ops = GitOperations(project_path)
+            
+            # Get Git state
+            git_state = None
+            if git_ops.is_git_repository():
+                git_summary = git_ops.get_git_summary()
+                from duggerlink.models.git import GitState
+                git_state = GitState(**git_summary)
+            
+            # Create DuggerProject and calculate health score
+            dlt_project = DuggerProject(
+                name=project["name"],
+                path=project_path,
+                git=git_state
+            )
+            
+            health_score = dlt_project.calculate_health_score()
+            health["health_score"] = health_score
+            
+            # Determine overall health based on score
+            if health_score >= 80:
+                health["overall_health"] = "excellent"
+            elif health_score >= 60:
+                health["overall_health"] = "good"
+            elif health_score >= 40:
+                health["overall_health"] = "fair"
+            else:
+                health["overall_health"] = "poor"
+                health["warnings"].append(f"Low health score: {health_score}/100")
+            
+            # Add DLT-specific info
+            health["info"]["dlt_linked"] = (project_path / "dugger.yaml").exists()
+            health["info"]["git_clean"] = git_state.is_clean() if git_state else False
+            health["info"]["has_docs"] = (project_path / "README.md").exists() or (project_path / "ROADMAP.md").exists()
+            
+        except ImportError:
+            health["issues"].append("DLT not available - using legacy health checks")
+            # Fallback to original logic
+            self._legacy_health_check(project, health)
+        except Exception as e:
+            health["issues"].append(f"DLT health check failed: {e}")
+            # Fallback to original logic
+            self._legacy_health_check(project, health)
+
+        return health
+    
+    def _legacy_health_check(self, project: dict[str, Any], health: dict[str, Any]) -> None:
+        """Fallback health check using original DGT logic."""
 
         # Git status
         try:
