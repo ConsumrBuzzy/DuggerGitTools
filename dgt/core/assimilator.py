@@ -1,0 +1,345 @@
+"""Assimilator Engine - Non-destructive project chassis grafting.
+
+Converts any legacy project into a DGT-managed project without destroying code.
+The "Chassis Graft" strategy: wrap existing structure with DGT infrastructure.
+"""
+
+import shutil
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+
+from loguru import logger
+
+from .gitignore_template import get_master_gitignore
+from .task_extractor import TaskExtractor
+
+
+@dataclass
+class AssimilationResult:
+    """Result of project assimilation."""
+    
+    success: bool
+    project_type: str
+    changes_made: List[str]
+    warnings: List[str]
+    errors: List[str]
+
+
+class AssimilatorEngine:
+    """Non-destructive project assimilation engine.
+    
+    The "Chassis Graft" approach:
+    1. Detect engine type (Python/Rust/Node/Chrome)
+    2. Inject infrastructure (dugger.yaml, .gitignore, TODO.md)
+    3. Extract existing knowledge (TODOs from code)
+    4. Link to existing environments (venv, cargo target)
+    
+    RULES:
+    - NEVER delete user code
+    - NEVER modify existing files without backup
+    - Always create .legacy/ backup if moving files
+    """
+    
+    def __init__(self, target_dir: Path, dry_run: bool = False):
+        """Initialize AssimilatorEngine.
+        
+        Args:
+            target_dir: Directory to assimilate
+            dry_run: If True, only simulate changes
+        """
+        self.target_dir = target_dir
+        self.dry_run = dry_run
+        self.logger = logger.bind(component="AssimilatorEngine")
+        
+        self.changes_made = []
+        self.warnings = []
+        self.errors = []
+    
+    def detect_engine(self) -> str:
+        """Detect project type.
+        
+        Returns:
+            Project type: python, rust, nodejs, chrome-extension, or unknown
+        """
+        # Chrome extension (highest priority - very specific)
+        if (self.target_dir / "manifest.json").exists():
+            return "chrome-extension"
+        
+        # Rust (Cargo.toml)
+        if (self.target_dir / "Cargo.toml").exists():
+            return "rust"
+        
+        # Python (multiple indicators)
+        python_indicators = [
+            "setup.py",
+            "pyproject.toml",
+            "requirements.txt",
+            "Pipfile",
+        ]
+        if any((self.target_dir / indicator).exists() for indicator in python_indicators):
+            return "python"
+        
+        # Check for .py files
+        py_files = list(self.target_dir.glob("*.py"))
+        if py_files or (self.target_dir / "src").exists():
+            return "python"
+        
+        # Node.js (package.json)
+        if (self.target_dir / "package.json").exists():
+            return "nodejs"
+        
+        return "unknown"
+    
+    def inject_frame(self, project_type: str) -> None:
+        """Inject DGT chassis infrastructure.
+        
+        Args:
+            project_type: Detected project type
+        """
+        # 1. .gitignore
+        self._inject_gitignore()
+        
+        # 2. dugger.yaml
+        self._inject_dugger_yaml(project_type)
+        
+        # 3. TODO.md (if not exists)
+        self._inject_todo_file()
+        
+        # 4. PLANNING directory
+        self._create_planning_dir()
+    
+    def _inject_gitignore(self) -> None:
+        """Inject or merge .gitignore."""
+        gitignore_path = self.target_dir / ".gitignore"
+        
+        if gitignore_path.exists():
+            # Backup existing
+            if not self.dry_run:
+                backup_path = self.target_dir / ".gitignore.backup"
+                shutil.copy2(gitignore_path, backup_path)
+                self.changes_made.append(f"Backed up existing .gitignore to .gitignore.backup")
+            
+            # Append DGT section
+            master_gitignore = get_master_gitignore()
+            
+            if not self.dry_run:
+                with gitignore_path.open('a', encoding='utf-8') as f:
+                    f.write("\n\n# === DuggerCore Additions ===\n")
+                    f.write(master_gitignore)
+            
+            self.changes_made.append("Appended DGT rules to existing .gitignore")
+        else:
+            # Create new
+            if not self.dry_run:
+                master_gitignore = get_master_gitignore()
+                with gitignore_path.open('w', encoding='utf-8') as f:
+                    f.write(master_gitignore)
+            
+            self.changes_made.append("Created .gitignore")
+    
+    def _inject_dugger_yaml(self, project_type: str) -> None:
+        """Inject dugger.yaml configuration.
+        
+        Args:
+            project_type: Project type
+        """
+        dugger_yaml_path = self.target_dir / "dugger.yaml"
+        
+        if dugger_yaml_path.exists():
+            self.warnings.append("dugger.yaml already exists, skipping")
+            return
+        
+        # Generate minimal configuration
+        config_template = f"""# DuggerCore Configuration
+# Auto-generated by AssimilatorEngine
+
+project_type: {project_type}
+multi_provider: false
+
+# Auto-documentation
+auto_doc:
+  enabled: true
+  generate_project_map: true
+  update_on_commit: true
+
+# Auto-release
+auto_release:
+  enabled: false
+  semantic_versioning: true
+  create_bundles: false
+
+# Development tools
+tools:
+  auto_fix_enabled: false
+  llm_enabled: false
+"""
+        
+        if not self.dry_run:
+            with dugger_yaml_path.open('w', encoding='utf-8') as f:
+                f.write(config_template)
+        
+        self.changes_made.append("Created dugger.yaml")
+    
+    def _inject_todo_file(self) -> None:
+        """Create TODO.md if not exists."""
+        todo_path = self.target_dir / "TODO.md"
+        
+        if todo_path.exists():
+            return
+        
+        template = f"""# TODO List
+
+**Project Assimilated**: {self.target_dir.name}  
+**Date**: Auto-generated by DuggerCore AssimilatorEngine
+
+## Next Steps
+
+# TODO: Review existing code for refactoring opportunities
+# TODO: Run `dgt-add scan` to extract inline TODOs
+# TODO: Set up auto-documentation with `dgt commit`
+
+---
+
+Use `dgt-add todo PHASE "Note"` to add quick brain-dumps.
+"""
+        
+        if not self.dry_run:
+            with todo_path.open('w', encoding='utf-8') as f:
+                f.write(template)
+        
+        self.changes_made.append("Created TODO.md")
+    
+    def _create_planning_dir(self) -> None:
+        """Create PLANNING directory structure."""
+        planning_dir = self.target_dir / "PLANNING"
+        
+        if planning_dir.exists():
+            return
+        
+        if not self.dry_run:
+            planning_dir.mkdir(exist_ok=True)
+            (planning_dir / "inbox").mkdir(exist_ok=True)
+            (planning_dir / "archive").mkdir(exist_ok=True)
+            
+            # Create README
+            readme_path = planning_dir / "README.md"
+            readme_content = """# Planning Directory
+
+- `inbox/` - Drop new ADRs and plans here
+- `archive/` - Processed plans
+- `CURRENT_SPRINT.md` - Auto-updated with recent commits
+
+Use `dgt-add plan "path/to/file.md"` to ingest planning documents.
+"""
+            with readme_path.open('w', encoding='utf-8') as f:
+                f.write(readme_content)
+        
+        self.changes_made.append("Created PLANNING/ directory structure")
+    
+    def extract_knowledge(self) -> None:
+        """Extract existing TODOs from codebase."""
+        try:
+            extractor = TaskExtractor(self.target_dir)
+            
+            if not self.dry_run:
+                report_path = extractor.generate_report_file()
+                self.changes_made.append(f"Extracted TODOs to {report_path.name}")
+            else:
+                annotations = extractor.scan_project()
+                self.changes_made.append(f"Would extract {len(annotations)} TODO annotations")
+        
+        except Exception as e:
+            self.errors.append(f"Failed to extract knowledge: {e}")
+    
+    def relink_infrastructure(self, project_type: str) -> None:
+        """Link to existing infrastructure (venv, cargo, etc).
+        
+        Args:
+            project_type: Project type
+        """
+        if project_type == "python":
+            # Check for existing venv
+            venv_candidates = [
+                self.target_dir / "venv",
+                self.target_dir / ".venv",
+                self.target_dir / "ENV",
+            ]
+            
+            existing_venv = None
+            for candidate in venv_candidates:
+                if candidate.exists():
+                    existing_venv = candidate
+                    break
+            
+            if existing_venv:
+                self.changes_made.append(f"Detected existing venv: {existing_venv.name}")
+            else:
+                self.warnings.append("No existing venv detected. Run VenvManager to create one.")
+        
+        elif project_type == "rust":
+            # Check for Cargo target
+            target_dir = self.target_dir / "target"
+            if target_dir.exists():
+                self.changes_made.append("Detected existing Cargo target/")
+            else:
+                self.warnings.append("No Cargo target/ found. Run `cargo build` to create.")
+        
+        elif project_type == "nodejs":
+            # Check for node_modules
+            node_modules = self.target_dir / "node_modules"
+            if node_modules.exists():
+                self.changes_made.append("Detected existing node_modules/")
+            else:
+                self.warnings.append("No node_modules/ found. Run `npm install`.")
+    
+    def assimilate(self) -> AssimilationResult:
+        """Execute full assimilation sequence.
+        
+        Returns:
+            AssimilationResult
+        """
+        self.logger.info(f"Starting assimilation of {self.target_dir}")
+        
+        # Step 1: Detect engine
+        project_type = self.detect_engine()
+        self.logger.info(f"Detected project type: {project_type}")
+        
+        if project_type == "unknown":
+            self.warnings.append("Could not detect project type - using generic configuration")
+            project_type = "python"  # Default fallback
+        
+        # Step 2: Inject frame
+        try:
+            self.inject_frame(project_type)
+        except Exception as e:
+            self.errors.append(f"Frame injection failed: {e}")
+            return AssimilationResult(
+                success=False,
+                project_type=project_type,
+                changes_made=self.changes_made,
+                warnings=self.warnings,
+                errors=self.errors
+            )
+        
+        # Step 3: Extract knowledge
+        self.extract_knowledge()
+        
+        # Step 4: Relink infrastructure
+        self.relink_infrastructure(project_type)
+        
+        # Success
+        success = len(self.errors) == 0
+        
+        if success:
+            self.logger.info(f"Assimilation complete: {len(self.changes_made)} changes made")
+        else:
+            self.logger.error(f"Assimilation failed: {len(self.errors)} errors")
+        
+        return AssimilationResult(
+            success=success,
+            project_type=project_type,
+            changes_made=self.changes_made,
+            warnings=self.warnings,
+            errors=self.errors
+        )
