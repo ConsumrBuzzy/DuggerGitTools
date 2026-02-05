@@ -21,6 +21,9 @@ from dgt.core.schema import SchemaLoader
 # Import init CLI
 from .cli_init import app as init_app
 
+# Version constant
+__version__ = "1.0.0"
+
 console = Console()
 app = typer.Typer(
     name="dgt",
@@ -31,6 +34,30 @@ app = typer.Typer(
 
 # Add init as a subcommand
 app.add_typer(init_app, name="init", help="Initialize new DuggerCore projects")
+
+
+def version_callback(value: bool) -> None:
+    """Version callback - displays version and exits."""
+    if value:
+        console.print(f"[bold cyan]DuggerGitTools (DGT)[/bold cyan] [green]v{__version__}[/green]")
+        console.print("[dim]Universal DevOps Chassis - Genesis Release[/dim]")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit."
+    ),
+) -> None:
+    """DuggerGitTools: Universal DevOps Chassis."""
+    pass
+
 
 @app.command()
 def commit(

@@ -12,6 +12,9 @@ Provides zero-friction knowledge capture from command line.
 import sys
 from pathlib import Path
 
+# Version constant
+__version__ = "1.0.0"
+
 
 def main():
     """Main entry point for dgt-add CLI."""
@@ -20,6 +23,12 @@ def main():
         return
     
     command = sys.argv[1].lower()
+    
+    # Handle version flag
+    if command in ["--version", "-v"]:
+        print(f"DuggerGitTools (DGT) dgt-add v{__version__}")
+        print("Universal DevOps Chassis - Genesis Release")
+        return
     
     if command == "todo":
         from dgt.scripts.todo import quick_todo
