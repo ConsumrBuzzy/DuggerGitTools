@@ -14,6 +14,7 @@ from .universal_auto_fixer import MultiProviderAutoFixer
 from .universal_message_generator import UniversalMessageGenerator
 from .universal_versioning import MultiProviderVersionManager
 from .git_operations import GitOperations
+from .lint_manager import LintingManager
 from ..services.documentation_service import DocumentationService
 from ..services.release_service import ReleaseService
 
@@ -36,6 +37,7 @@ class MultiProviderOrchestrator:
         self.message_generator = UniversalMessageGenerator(config, schema)
         self.auto_fixer = MultiProviderAutoFixer(config, schema)
         self.version_manager = MultiProviderVersionManager(config, schema)
+        self.linting_manager = LintingManager(config.project_root)
         
         # Initialize service layer (SRP compliance)
         self.doc_service = DocumentationService(config.project_root)
@@ -101,7 +103,28 @@ class MultiProviderOrchestrator:
                 else:
                     progress.update(task, description="No fixes needed ✓")
                 
-                # Step 4: Generate unified commit message
+                # Step 1: Format code (Clean Sweep Protocol - ADR-004)
+                task = progress.add_task("Formatting code...", total=None)
+                format_results = self.linting_manager.format_staged_files(staged_files)
+                
+                # Re-stage files after formatting
+                if any(r.success and r.files_processed > 0 for r in format_results):
+                    self.git_ops.stage_files([str(f) for f in staged_files])
+                
+                progress.update(task, description="Code formatted ✓")
+                
+                # Step 2: Syntax check
+                task = progress.add_task("Checking syntax...", total=None)
+                syntax_passed, syntax_results = self.linting_manager.pre_commit_check(staged_files)
+                if not syntax_passed:
+                    self.logger.error("✖ Syntax errors detected. Fix errors before committing.")
+                    for result in syntax_results:
+                        if not result.success and result.details:
+                            self.logger.error(result.details)
+                    return
+                progress.update(task, description="Syntax check passed ✓")
+                
+                # Step 3: Generate unified commit message
                 task = progress.add_task("Generating unified commit message...", total=None)
                 line_numbers = self.git_ops.get_changed_line_numbers()
                 commit_message = self.message_generator.generate_smart_message(

@@ -416,3 +416,30 @@ class ReleaseManager:
         
         except subprocess.CalledProcessError:
             return "No release notes available"
+    
+    def organize_build_artifacts(self, version: str, artifact_paths: List[Path]) -> Path:
+        """Organize build artifacts into version-stamped directory.
+        
+        ADR-003: Move artifacts to builds/v{version}/ for clean organization.
+        
+        Args:
+            version: Version string
+            artifact_paths: Paths to artifacts to organize
+            
+        Returns:
+            Path to version directory
+        """
+        # Create builds/v{version}/ directory
+        builds_dir = self.project_root / "builds"
+        version_dir = builds_dir / f"v{version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Move/copy artifacts
+        import shutil
+        for artifact_path in artifact_paths:
+            if artifact_path.exists():
+                dest = version_dir / artifact_path.name
+                shutil.copy2(artifact_path, dest)
+                self.logger.info(f"Organized {artifact_path.name} -> {version_dir}")
+        
+        return version_dir
