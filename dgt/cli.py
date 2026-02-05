@@ -12,6 +12,9 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.tree import Tree
+from rich.panel import Panel
+from rich.table import Table
 
 from dgt.core.config import DGTConfig
 from dgt.core.orchestrator import DGTOrchestrator

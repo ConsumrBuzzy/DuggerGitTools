@@ -60,6 +60,7 @@ class DGTConfig(BaseModel):
     )
     logging: LoggingConfig = Field(default_factory=LoggingConfig, description="Logging configuration")
     providers: Dict[str, ProviderConfig] = Field(default_factory=dict, description="Provider configurations")
+    provider_config: Dict[str, Any] = Field(default_factory=dict, description="Legacy provider configuration field")
     
     @validator('project_root')
     def validate_project_root(cls, v: Path) -> Path:

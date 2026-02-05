@@ -192,7 +192,7 @@ class DGTOrchestrator:
                 commit_message = self.message_generator.generate_smart_message(
                     [str(f) for f in staged_files], 
                     line_numbers,
-                    use_llm=self.config.provider_config.custom_settings.get("use_llm", False)
+                    use_llm=self.config.provider_config.get("use_llm", False)
                 )
                 
                 # Apply provider-specific formatting
@@ -210,7 +210,7 @@ class DGTOrchestrator:
                 progress.update(task, description=f"Committed {commit_hash[:8]} ✓")
                 
                 # Step 7: Version management (if enabled)
-                if self.config.provider_config.custom_settings.get("auto_bump_version", False):
+                if self.config.provider_config.get("auto_bump_version", False):
                     task = progress.add_task("Bumping version...", total=None)
                     new_version = self.version_manager.bump_version()
                     self.git_ops.stage_all()
@@ -289,7 +289,7 @@ class DGTOrchestrator:
             formatted_message = self.message_generator.generate_smart_message(
                 would_commit_files, 
                 line_numbers,
-                use_llm=self.config.provider_config.custom_settings.get("use_llm", False)
+                use_llm=self.config.provider_config.get("use_llm", False)
             )
             
             # Apply provider-specific formatting
@@ -336,8 +336,8 @@ class DGTOrchestrator:
             },
             "version_info": self.version_manager.get_version_info(),
             "capabilities": {
-                "has_llm": self.config.provider_config.custom_settings.get("use_llm", False),
-                "auto_bump_version": self.config.provider_config.custom_settings.get("auto_bump_version", False),
+                "has_llm": self.config.provider_config.get("use_llm", False),
+                "auto_bump_version": self.config.provider_config.get("auto_bump_version", False),
                 "auto_fixes": True,
                 "line_number_tracking": True
             }
