@@ -31,6 +31,10 @@ dev = [
 
 [project.scripts]
 dgt = "dgt.cli:app"
+dgt-add = "dgt.scripts.dgt_add:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dgt"]
 
 [tool.ruff]
 line-length = 88
