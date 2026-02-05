@@ -28,30 +28,26 @@ class RustProvider(BaseProvider):
         return (project_root / "Cargo.toml").exists()
     
     def _validate_environment_impl(self) -> None:
-        """Validate Rust environment and required tools."""
-        # Check Rust version
-        result = subprocess.run(
-            ["rustc", "--version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        version_str = result.stdout.strip()
-        self.logger.info(f"Rust version: {version_str}")
+        """Validate Rust environment using RustToolchain."""
+        from ..core.rust_toolchain import RustToolchain
         
-        # Check Cargo version
-        result = subprocess.run(
-            ["cargo", "--version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        cargo_version = result.stdout.strip()
-        self.logger.info(f"Cargo version: {cargo_version}")
+        toolchain = RustToolchain(self.config.project_root)
+        is_ok, message, toolchain_info = toolchain.verify_toolchain()
+        
+        if not is_ok:
+            raise RuntimeError(message)
+        
+        self.logger.info(message)
+        
+        # Store toolchain info for later use
+        self._toolchain_info = toolchain_info
     
     def run_pre_flight_checks(self, staged_files: List[Path]) -> List[CheckResult]:
         """Run Rust-specific pre-flight checks."""
         results = []
+        
+        # Check OpenSSL availability
+        results.append(self._check_openssl())
         
         # Format code
         results.append(self._run_cargo_fmt())
@@ -311,5 +307,35 @@ class RustProvider(BaseProvider):
                 success=False,
                 message=f"Benchmarks failed: {e.stderr}",
                 details={"output": e.stdout},
+                execution_time=time.time() - start_time
+            )
+    
+    def _check_openssl(self) -> CheckResult:
+        """Check OpenSSL availability using RustToolchain."""
+        start_time = time.time()
+        
+        try:
+            from ..core.rust_toolchain import RustToolchain
+            
+            toolchain = RustToolchain(self.config.project_root)
+            openssl_info = toolchain.find_openssl()
+            
+            if openssl_info:
+                return CheckResult(
+                    success=True,
+                    message=f"System OpenSSL found: {openssl_info.openssl_dir}",
+                    details={"openssl_dir": str(openssl_info.openssl_dir), "lib_dir": str(openssl_info.lib_dir)},
+                    execution_time=time.time() - start_time
+                )
+            else:
+                return CheckResult(
+                    success=True,
+                    message="No system OpenSSL - will use vendored build (slower)",
+                    execution_time=time.time() - start_time
+                )
+        except Exception as e:
+            return CheckResult(
+                success=False,
+                message=f"Failed to check OpenSSL: {e}",
                 execution_time=time.time() - start_time
             )

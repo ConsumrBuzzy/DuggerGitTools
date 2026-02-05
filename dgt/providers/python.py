@@ -118,23 +118,33 @@ class PythonProvider(BaseProvider):
         return metadata
     
     def _check_virtual_environment(self) -> CheckResult:
-        """Check if we're running in a virtual environment."""
+        """Check if we're running in a virtual environment using VenvManager."""
         start_time = time.time()
         
         try:
-            import sys
-            has_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+            from ..core.venv_manager import VenvManager
             
-            if has_venv:
-                return CheckResult(
-                    success=True,
-                    message="Virtual environment detected",
-                    execution_time=time.time() - start_time
-                )
+            venv_mgr = VenvManager(self.config.project_root)
+            venv_info = venv_mgr.find_venv()
+            
+            if venv_info:
+                if venv_info.is_active:
+                    return CheckResult(
+                        success=True,
+                        message=f"Virtual environment active: {venv_info.path} (Python {venv_info.version})",
+                        execution_time=time.time() - start_time
+                    )
+                else:
+                    return CheckResult(
+                        success=False,
+                        message=f"Virtual environment found at {venv_info.path} but not active. Please activate it.",
+                        details={"venv_path": str(venv_info.path), "python_version": venv_info.version},
+                        execution_time=time.time() - start_time
+                    )
             else:
                 return CheckResult(
                     success=False,
-                    message="No virtual environment detected. Please activate a virtual environment.",
+                    message="No virtual environment detected. Please create one with 'python -m venv .venv'",
                     execution_time=time.time() - start_time
                 )
         except Exception as e:

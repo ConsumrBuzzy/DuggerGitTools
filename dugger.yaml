@@ -73,3 +73,38 @@ build_commands: []
 # Hooks
 pre_commit_hooks: []
 post_commit_hooks: []
+
+# ============================================================================
+# DuggerCore Universal Provider Configuration (ADR-001)
+# ============================================================================
+
+# Python-specific configuration
+python:
+  auto_create_venv: true  # Auto-create venv if missing
+  min_python_version: "3.12"  # Minimum Python version to enforce
+  venv_name: ".venv"  # Preferred venv directory name
+  auto_activate: true  # Offer to activate venv if not active
+
+# Rust-specific configuration
+rust:
+  prefer_system_openssl: true  # Use system OpenSSL if available (faster linking)
+  detect_wasm_targets: true  # Auto-detect WASM/cdylib targets in Cargo.toml
+  enforce_rustup_toolchain: true  # Validate rustup-managed rustc (not Chocolatey)
+  preferred_target: "x86_64-pc-windows-msvc"  # Preferred Rust target
+
+# Auto-documentation configuration
+auto_doc:
+  enabled: true  # Generate PROJECT_MAP.json on each commit
+  output_file: "PROJECT_MAP.json"  # Output file name
+  track_architecture: true  # Track class/function signatures and line ranges
+  incremental_updates: true  # Only update changed files (faster)
+  file_patterns:  # Glob patterns to include
+    - "**/*.py"
+    - "**/*.rs"
+
+# Architecture mapping configuration
+architecture:
+  map_python_rust_bindings: true  # Detect PyO3 bindings
+  output_file: "ARCHITECTURE.md"  # Output file name
+  generate_mermaid: true  # Include Mermaid dependency graph
+  auto_update: true  # Update on each commit
