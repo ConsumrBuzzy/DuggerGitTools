@@ -338,62 +338,6 @@ class GlobalDashboard:
         # Project type breakdown
         table.add_row("", "")
         table.add_row("Project Types", "")
-        for project_type, count in summary_stats["project_types"].items():
-            table.add_row(f"  {project_type}", str(count))
-
-        return Panel(table, border_style="blue")
-
-    def _create_projects_panel(self) -> Panel:
-        """Create projects details panel."""
-        table = Table(title="Project Health Details")
-        table.add_column("Project", style="bold")
-        table.add_column("Type", style="cyan")
-        table.add_column("Health", style="magenta")
-        table.add_column("Branch", style="blue")
-        table.add_column("Dirty", style="yellow")
-        table.add_column("Issues", style="red")
-
-        for project_name, health in self.health_data.items():
-            # Health indicator
-            health_color = {
-                "healthy": "green",
-                "warning": "yellow",
-                "critical": "red",
-            }.get(health["overall_health"], "white")
-
-            health_symbol = {
-                "healthy": "✓",
-                "warning": "⚠",
-                "critical": "✗",
-            }.get(health["overall_health"], "?")
-
-            # Git status
-            git_status = health.get("git_status", {})
-            branch = git_status.get("current_branch", "unknown")
-            is_dirty = git_status.get("is_dirty", False)
-            dirty_symbol = "🔴" if is_dirty else "🟢"
-
-            # Issues count
-            issues_count = len(health.get("issues", []))
-            warnings_count = len(health.get("warnings", []))
-            total_issues = issues_count + warnings_count
-
-            table.add_row(
-                project_name,
-                health["project_type"],
-                f"[{health_color}]{health_symbol} {health['overall_health']}[/{health_color}]",
-                branch,
-                dirty_symbol,
-                str(total_issues) if total_issues > 0 else "0",
-            )
-
-        return Panel(table, border_style="blue")
-
-    def _create_issues_panel(self) -> Panel:
-        """Create issues panel."""
-        # Collect all issues and warnings
-        all_issues = []
-        all_warnings = []
 
         for project_name, health in self.health_data.items():
             for issue in health.get("issues", []):
