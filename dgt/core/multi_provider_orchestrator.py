@@ -14,6 +14,8 @@ from .universal_auto_fixer import MultiProviderAutoFixer
 from .universal_message_generator import UniversalMessageGenerator
 from .universal_versioning import MultiProviderVersionManager
 from .git_operations import GitOperations
+from ..services.documentation_service import DocumentationService
+from ..services.release_service import ReleaseService
 
 
 class MultiProviderOrchestrator:
@@ -34,6 +36,10 @@ class MultiProviderOrchestrator:
         self.message_generator = UniversalMessageGenerator(config, schema)
         self.auto_fixer = MultiProviderAutoFixer(config, schema)
         self.version_manager = MultiProviderVersionManager(config, schema)
+        
+        # Initialize service layer (SRP compliance)
+        self.doc_service = DocumentationService(config.project_root)
+        self.release_service = ReleaseService(config.project_root, project_name=schema.project_type.value)
         
         self.multi_config = schema.multi_provider
         self.enabled_providers = self.multi_config.enabled_providers
@@ -150,14 +156,25 @@ class MultiProviderOrchestrator:
                 # Step 8: Update documentation (if enabled)
                 if getattr(self.schema, 'auto_doc', {}).get('enabled', False):
                     task = progress.add_task("Updating documentation...", total=None)
-                    self._update_documentation(staged_files)
+                    updated_docs = self.doc_service.sync_all(staged_files)
+                    
+                    # Stage updated documentation files
+                    if updated_docs:
+                        self.git_ops.stage_files([str(f) for f in updated_docs])
+                    
                     progress.update(task, description="Documentation updated ✓")
                 
-                # Step 9: Update architecture map (if enabled)
-                if getattr(self.schema, 'architecture', {}).get('map_python_rust_bindings', False):
-                    task = progress.add_task("Updating architecture map...", total=None)
-                    self._update_architecture_map()
-                    progress.update(task, description="Architecture map updated ✓")
+                # Step 9: Create release (if enabled)
+                if getattr(self.schema, 'auto_release', {}).get('enabled', False):
+                    task = progress.add_task("Creating release...", total=None)
+                    release = self.release_service.create_release(
+                        commit_message=enhanced_message,
+                        auto_version=True
+                    )
+                    if release:
+                        progress.update(task, description=f"Release {release.version} created ✓")
+                    else:
+                        progress.update(task, description="Release creation skipped ✓")
                 
                 # Step 10: Push to remote if configured
                 if self.config.auto_push:
@@ -335,38 +352,6 @@ class MultiProviderOrchestrator:
             patch += 1
         
         return f"{major}.{minor}.{patch}"
-    
-    def _update_documentation(self, changed_files: List[Path]) -> None:
-        """Update PROJECT_MAP.json with changed files."""
-        try:
-            from .doc_parser import DocParser
-            
-            parser = DocParser(self.config.project_root)
-            parser.update_project_map_incremental(changed_files)
-            
-            # Stage PROJECT_MAP.json if it changed
-            map_file = self.config.project_root / "PROJECT_MAP.json"
-            if map_file.exists():
-                self.git_ops.stage_files([str(map_file)])
-                self.logger.info("Documentation updated")
-        except Exception as e:
-            self.logger.warning(f"Failed to update documentation: {e}")
-    
-    def _update_architecture_map(self) -> None:
-        """Update ARCHITECTURE.md with dependency graph."""
-        try:
-            from .architecture_mapper import ArchitectureMapper
-            
-            mapper = ArchitectureMapper(self.config.project_root)
-            mapper.update_architecture_doc()
-            
-            # Stage ARCHITECTURE.md if it changed
-            arch_file = self.config.project_root / "ARCHITECTURE.md"
-            if arch_file.exists():
-                self.git_ops.stage_files([str(arch_file)])
-                self.logger.info("Architecture map updated")
-        except Exception as e:
-            self.logger.warning(f"Failed to update architecture map: {e}")
     
     def validate_multi_provider_setup(self) -> Dict[str, Any]:
         """Validate multi-provider configuration and dependencies."""

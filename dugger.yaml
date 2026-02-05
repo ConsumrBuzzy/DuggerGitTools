@@ -108,3 +108,10 @@ architecture:
   output_file: "ARCHITECTURE.md"  # Output file name
   generate_mermaid: true  # Include Mermaid dependency graph
   auto_update: true  # Update on each commit
+
+# Release management configuration (ADR-002)
+auto_release:
+  enabled: false  # Create releases in RELEASES.json on each commit
+  auto_version: true  # Auto-calculate version from commit message (feat:/fix:/breaking:)
+  create_bundles: false  # Auto-create ZIP artifacts for Chrome extensions
+  archive_artifacts: true  # Archive release artifacts in releases/ directory

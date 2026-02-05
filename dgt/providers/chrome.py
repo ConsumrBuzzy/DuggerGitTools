@@ -99,6 +99,10 @@ class ChromeExtensionProvider(BaseProvider):
         if self.provider_config.custom_settings.get("auto_bump_version", False):
             results.append(self._bump_version())
         
+        # Create release package if auto_build enabled
+        if self.provider_config.custom_settings.get("auto_build", False):
+            results.append(self._create_release_package())
+        
         # Validate extension package
         results.append(self._validate_extension_package())
         
@@ -453,6 +457,71 @@ class ChromeExtensionProvider(BaseProvider):
         import re
         semver_pattern = r"^\d+\.\d+\.\d+$"
         return re.match(semver_pattern, version) is not None
+    
+    def _create_release_package(self) -> CheckResult:
+        """Create versioned ZIP package for Chrome Web Store upload.
+        
+        CBHuddle pattern: Extract version from manifest.json, zip dist/ directory,
+        save to releases/ with version-tagged name.
+        """
+        start_time = time.time()
+        project_root = self.config.project_root
+        
+        try:
+            # Read manifest for version
+            manifest_file = project_root / "manifest.json"
+            with manifest_file.open("r") as f:
+                manifest = json.load(f)
+            version = manifest.get("version", "1.0.0")
+            
+            # Determine source directory (dist/ or extension/ or root)
+            dist_dir = None
+            if (project_root / "dist").exists():
+                dist_dir = project_root / "dist"
+            elif (project_root / "extension" / "dist").exists():
+                dist_dir = project_root / "extension" / "dist"
+            elif (project_root / "build").exists():
+                dist_dir = project_root / "build"
+            else:
+                # No dist directory, package the entire project
+                dist_dir = project_root
+            
+            # Create releases directory
+            releases_dir = project_root / "releases"
+            releases_dir.mkdir(exist_ok=True)
+            
+            # Create zip file with versioned name
+            import zipfile
+            safe_version = version.replace(".", "_")
+            extension_name = manifest.get("name", "extension").replace(" ", "_")
+            zip_name = f"{extension_name}_v{safe_version}.zip"
+            zip_path = releases_dir / zip_name
+            
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in dist_dir.rglob("*"):
+                    if file_path.is_file():
+                        arcname = file_path.relative_to(dist_dir)
+                        zipf.write(file_path, arcname)
+            
+            zip_size = zip_path.stat().st_size / 1024  # KB
+            
+            return CheckResult(
+                success=True,
+                message=f"Created release package: {zip_name} ({zip_size:.2f} KB)",
+                details={
+                    "zip_path": str(zip_path),
+                    "version": version,
+                    "size_kb": zip_size
+                },
+                execution_time=time.time() - start_time
+            )
+            
+        except Exception as e:
+            return CheckResult(
+                success=False,
+                message=f"Failed to create release package: {e}",
+                execution_time=time.time() - start_time
+            )
     
     def _increment_version(self, version: str) -> str:
         """Increment patch version."""
