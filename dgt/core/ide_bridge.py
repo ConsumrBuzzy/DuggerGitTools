@@ -135,12 +135,13 @@ dgt commit             # Auto-format + commit
             )
         
         try:
+            existed_before = target_path.exists()
             master = self.generate_master_instructions()
             
             with target_path.open('w', encoding='utf-8') as f:
                 f.write(master)
             
-            created = not target_path.existed()
+            created = not existed_before
             
             return IDESyncResult(
                 ide_name="Cursor",
@@ -181,12 +182,13 @@ dgt commit             # Auto-format + commit
             )
         
         try:
+            existed_before = target_path.exists()
             master = self.generate_master_instructions()
             
             with target_path.open('w', encoding='utf-8') as f:
                 f.write(master)
             
-            created = not target_path.existed()
+            created = not existed_before
             
             return IDESyncResult(
                 ide_name="Windsurf",
@@ -230,13 +232,14 @@ dgt commit             # Auto-format + commit
         try:
             # Create directory if needed
             antigravity_dir.mkdir(exist_ok=True)
+            existed_before = target_path.exists()
             
             master = self.generate_master_instructions()
             
             with target_path.open('w', encoding='utf-8') as f:
                 f.write(master)
             
-            created = not target_path.existed()
+            created = not existed_before
             
             return IDESyncResult(
                 ide_name="Antigravity",
@@ -280,6 +283,7 @@ dgt commit             # Auto-format + commit
         try:
             # Create directory if needed
             kiro_dir.mkdir(exist_ok=True)
+            existed_before = target_path.exists()
             
             # Generate context as JSON
             master = self.generate_master_instructions()
@@ -298,7 +302,7 @@ dgt commit             # Auto-format + commit
             with target_path.open('w', encoding='utf-8') as f:
                 json.dump(context, f, indent=2)
             
-            created = not target_path.existed()
+            created = not existed_before
             
             return IDESyncResult(
                 ide_name="Kiro",
@@ -339,12 +343,13 @@ dgt commit             # Auto-format + commit
             )
         
         try:
+            existed_before = target_path.exists()
             master = self.generate_master_instructions()
             
             with target_path.open('w', encoding='utf-8') as f:
                 f.write(master)
             
-            created = not target_path.existed()
+            created = not existed_before
             
             return IDESyncResult(
                 ide_name="Generic",
