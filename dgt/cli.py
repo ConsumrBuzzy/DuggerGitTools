@@ -80,24 +80,36 @@ def commit(
 ) -> None:
     """Run the complete commit workflow."""
     try:
-        # Load configuration
-        config = DGTConfig.from_project_root(project_root)
-        config.dry_run = dry_run
-        config.auto_push = not no_push
-
-        # Initialize orchestrator
-        orchestrator = DGTOrchestrator(config)
-
+        # Delegate to DLT for commit operations
+        import subprocess
+        
+        # Build dlt-commit command
+        cmd = ["dlt-commit", "-m", message]
+        
         if dry_run:
-            result = orchestrator.run_dry_run(message)
-            _display_dry_run_result(result)
+            cmd.append("--dry-run")
+        if no_add:
+            cmd.append("--no-add")
+        if no_push:
+            cmd.append("--no-push")
+        if project_root:
+            cmd.extend(["--root", str(project_root)])
+        
+        console.print(f"[cyan]Delegating to DLT: {' '.join(cmd)}[/cyan]")
+        
+        # Execute DLT command
+        result = subprocess.run(cmd, cwd=project_root or Path.cwd())
+        
+        if result.returncode == 0:
+            console.print("[green]✓ Commit completed successfully[/green]")
         else:
-            result = orchestrator.run_commit_workflow(message, auto_add=not no_add)
-            _display_commit_result(result)
+            console.print(f"[red]✗ Commit failed with exit code {result.returncode}[/red]")
+            
+        sys.exit(result.returncode)
 
-        # Exit with appropriate code
-        sys.exit(0 if result["success"] else 1)
-
+    except FileNotFoundError:
+        console.print("[red]Error: dlt-commit not found. Please install DuggerLinkTools.[/red]")
+        sys.exit(1)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         sys.exit(1)
@@ -107,9 +119,16 @@ def commit(
 def status(
     project_root: Path
     | None = typer.Option(None, "--root", help="Project root directory"),
+    ecosystem: bool = typer.Option(False, "--ecosystem", "-e", help="Show ecosystem dashboard"),
 ) -> None:
     """Display project and Git status."""
     try:
+        if ecosystem:
+            # Show ecosystem dashboard
+            from .core.enhanced_status import main as ecosystem_status
+            ecosystem_status()
+            return
+            
         config = DGTConfig.from_project_root(project_root)
         orchestrator = DGTOrchestrator(config)
 
