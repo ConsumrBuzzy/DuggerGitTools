@@ -3,7 +3,7 @@
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from loguru import logger
 
