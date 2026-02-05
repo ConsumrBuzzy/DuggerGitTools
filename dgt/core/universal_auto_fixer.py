@@ -1,13 +1,52 @@
 """Universal auto-fixer with capability-based tool sensing."""
 
+import functools
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
 from .config import DGTConfig
 from .schema import CapabilityCheck, DuggerSchema, ToolConfig
+
+
+class DuggerToolError(Exception):
+    """Custom exception for tool-related errors."""
+
+    def __init__(self, tool_name: str, command: list[str], message: str) -> None:
+        self.tool_name = tool_name
+        self.command = command
+        self.message = message
+        super().__init__(f"{tool_name}: {message}")
+
+
+def ttl_cache(ttl_seconds: int = 30):
+    """Simple TTL cache decorator for tool status."""
+
+    def decorator(func):
+        cache = {}
+        timestamps = {}
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            key = str(args) + str(sorted(kwargs.items()))
+            current_time = time.time()
+
+            # Check if cache entry exists and is still valid
+            if key in cache and current_time - timestamps[key] < ttl_seconds:
+                return cache[key]
+
+            # Compute and cache result
+            result = func(*args, **kwargs)
+            cache[key] = result
+            timestamps[key] = current_time
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class UniversalAutoFixer:
@@ -56,7 +95,9 @@ class UniversalAutoFixer:
             self.logger.info("Files changed during fixes - will re-stage")
             self.fixes_applied = True
 
-        self.logger.info(f"{'Fixes applied' if self.fixes_applied else 'No fixes needed'}")
+        self.logger.info(
+            f"{'Fixes applied' if self.fixes_applied else 'No fixes needed'}"
+        )
         return self.fixes_applied
 
     def _detect_available_tools(self) -> list[ToolConfig]:
@@ -72,12 +113,14 @@ class UniversalAutoFixer:
 
         return available_tools
 
+    @ttl_cache(ttl_seconds=30)
     def _check_tool_availability(self, capability_check: CapabilityCheck) -> bool:
         """Check if a tool is available using the capability check."""
         try:
             result = subprocess.run(
                 capability_check.command,
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
                 timeout=capability_check.timeout,
                 cwd=self.repo_path,
@@ -86,23 +129,35 @@ class UniversalAutoFixer:
             success = result.returncode == capability_check.expected_exit
 
             if success:
-                self.logger.debug(f"Tool check passed: {' '.join(capability_check.command)}")
+                self.logger.debug(
+                    f"Tool check passed: {' '.join(capability_check.command)}"
+                )
             else:
-                self.logger.debug(f"Tool check failed: {' '.join(capability_check.command)} (exit: {result.returncode})")
+                self.logger.debug(
+                    f"Tool check failed: {' '.join(capability_check.command)} (exit: {result.returncode})"
+                )
 
             return success
 
         except subprocess.TimeoutExpired:
-            self.logger.debug(f"Tool check timed out: {' '.join(capability_check.command)}")
+            self.logger.debug(
+                f"Tool check timed out: {' '.join(capability_check.command)}"
+            )
             return False
         except FileNotFoundError:
-            self.logger.debug(f"Tool not found: {capability_check.command[0]}")
-            return False
+            tool_name = capability_check.command[0]
+            raise DuggerToolError(
+                tool_name, capability_check.command, f"Tool not found: {tool_name}"
+            )
         except Exception as e:
-            self.logger.debug(f"Tool check error: {e}")
-            return False
+            tool_name = capability_check.command[0]
+            raise DuggerToolError(
+                tool_name, capability_check.command, f"Tool check error: {e}"
+            )
 
-    def _should_run_tool(self, tool_config: ToolConfig, staged_files: list[Path] | None) -> bool:
+    def _should_run_tool(
+        self, tool_config: ToolConfig, staged_files: list[Path] | None
+    ) -> bool:
         """Determine if a tool should run based on file patterns."""
         if not tool_config.file_patterns:
             # Tool runs on all files
@@ -123,6 +178,7 @@ class UniversalAutoFixer:
     def _matches_pattern(self, filename: str, pattern: str) -> bool:
         """Check if filename matches a pattern."""
         import fnmatch
+
         return fnmatch.fnmatch(filename, pattern)
 
     def _run_tool_fix(self, tool_config: ToolConfig) -> bool:
@@ -133,7 +189,8 @@ class UniversalAutoFixer:
             start_time = time.time()
             result = subprocess.run(
                 tool_config.fix_command,
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout
                 cwd=self.repo_path,
@@ -142,7 +199,9 @@ class UniversalAutoFixer:
             execution_time = time.time() - start_time
 
             if result.returncode == 0:
-                self.logger.info(f"✅ {tool_config.name} completed successfully ({execution_time:.2f}s)")
+                self.logger.info(
+                    f"✅ {tool_config.name} completed successfully ({execution_time:.2f}s)"
+                )
 
                 # Check if tool actually made changes
                 if self._tool_made_changes(result.stdout):
@@ -150,17 +209,24 @@ class UniversalAutoFixer:
                     return True
                 self.logger.info(f"   {tool_config.name} no fixes needed")
                 return False
-            self.logger.warning(f"⚠️  {tool_config.name} failed (exit: {result.returncode})")
+
+            # Handle non-zero exit codes with structured error
+            error_msg = f"Tool failed with exit code {result.returncode}"
             if result.stderr:
-                self.logger.debug(f"   Error: {result.stderr}")
-            return False
+                error_msg += f": {result.stderr.strip()}"
+            raise DuggerToolError(tool_config.name, tool_config.fix_command, error_msg)
 
         except subprocess.TimeoutExpired:
-            self.logger.warning(f"⚠️  {tool_config.name} timed out")
-            return False
+            raise DuggerToolError(
+                tool_config.name, tool_config.fix_command, "Tool execution timed out"
+            )
+        except DuggerToolError:
+            # Re-raise our custom errors
+            raise
         except Exception as e:
-            self.logger.warning(f"⚠️  {tool_config.name} error: {e}")
-            return False
+            raise DuggerToolError(
+                tool_config.name, tool_config.fix_command, f"Unexpected error: {e}"
+            )
 
     def _tool_made_changes(self, output: str) -> bool:
         """Check if tool output indicates changes were made."""
@@ -182,7 +248,8 @@ class UniversalAutoFixer:
         try:
             result = subprocess.run(
                 ["git", "status", "--porcelain"],
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
                 cwd=self.repo_path,
             )
@@ -190,12 +257,18 @@ class UniversalAutoFixer:
         except Exception:
             return ""
 
-    def get_tool_status(self) -> dict[str, dict]:
+    def get_tool_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all configured tools."""
         tool_status = {}
 
         for tool_config in self.schema.tools:
-            is_available = self._check_tool_availability(tool_config.check)
+            try:
+                is_available = self._check_tool_availability(tool_config.check)
+            except DuggerToolError as e:
+                self.logger.warning(
+                    f"Tool check failed for {tool_config.name}: {e.message}"
+                )
+                is_available = False
 
             tool_status[tool_config.name] = {
                 "available": is_available,
@@ -213,14 +286,22 @@ class UniversalAutoFixer:
         tool_config = next((t for t in self.schema.tools if t.name == tool_name), None)
 
         if not tool_config:
-            self.logger.error(f"Tool not found: {tool_name}")
+            raise DuggerToolError(tool_name, [], f"Tool not found: {tool_name}")
+
+        try:
+            if not self._check_tool_availability(tool_config.check):
+                raise DuggerToolError(
+                    tool_name, tool_config.check.command, "Tool not available"
+                )
+        except DuggerToolError as e:
+            self.logger.error(str(e))
             return False
 
-        if not self._check_tool_availability(tool_config.check):
-            self.logger.error(f"Tool not available: {tool_name}")
+        try:
+            return self._run_tool_fix(tool_config)
+        except DuggerToolError as e:
+            self.logger.error(f"Tool execution failed: {e.message}")
             return False
-
-        return self._run_tool_fix(tool_config)
 
     def add_custom_tool(self, tool_config: ToolConfig) -> None:
         """Add a custom tool configuration."""
@@ -255,7 +336,10 @@ class MultiProviderAutoFixer:
         """Run fixes across all providers."""
         fixes_applied = False
 
-        execution_order = self.schema.multi_provider.execution_order or self.schema.multi_provider.enabled_providers
+        execution_order = (
+            self.schema.multi_provider.execution_order
+            or self.schema.multi_provider.enabled_providers
+        )
 
         for provider_name in execution_order:
             if provider_name not in self.schema.multi_provider.enabled_providers:
@@ -280,7 +364,9 @@ class MultiProviderAutoFixer:
 
         return fixes_applied
 
-    def _run_provider_fixes(self, provider_name: str, staged_files: list[Path] | None) -> bool:
+    def _run_provider_fixes(
+        self, provider_name: str, staged_files: list[Path] | None
+    ) -> bool:
         """Run fixes for a specific provider."""
         # This would integrate with individual provider auto-fixers
         # For now, simulate the process
