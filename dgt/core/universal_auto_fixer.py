@@ -96,7 +96,7 @@ class UniversalAutoFixer:
             self.fixes_applied = True
 
         self.logger.info(
-            f"{'Fixes applied' if self.fixes_applied else 'No fixes needed'}"
+            f"{'Fixes applied' if self.fixes_applied else 'No fixes needed'}",
         )
         return self.fixes_applied
 
@@ -130,33 +130,33 @@ class UniversalAutoFixer:
 
             if success:
                 self.logger.debug(
-                    f"Tool check passed: {' '.join(capability_check.command)}"
+                    f"Tool check passed: {' '.join(capability_check.command)}",
                 )
             else:
                 self.logger.debug(
-                    f"Tool check failed: {' '.join(capability_check.command)} (exit: {result.returncode})"
+                    f"Tool check failed: {' '.join(capability_check.command)} (exit: {result.returncode})",
                 )
 
             return success
 
         except subprocess.TimeoutExpired:
             self.logger.debug(
-                f"Tool check timed out: {' '.join(capability_check.command)}"
+                f"Tool check timed out: {' '.join(capability_check.command)}",
             )
             return False
         except FileNotFoundError:
             tool_name = capability_check.command[0]
             raise DuggerToolError(
-                tool_name, capability_check.command, f"Tool not found: {tool_name}"
+                tool_name, capability_check.command, f"Tool not found: {tool_name}",
             )
         except Exception as e:
             tool_name = capability_check.command[0]
             raise DuggerToolError(
-                tool_name, capability_check.command, f"Tool check error: {e}"
+                tool_name, capability_check.command, f"Tool check error: {e}",
             )
 
     def _should_run_tool(
-        self, tool_config: ToolConfig, staged_files: list[Path] | None
+        self, tool_config: ToolConfig, staged_files: list[Path] | None,
     ) -> bool:
         """Determine if a tool should run based on file patterns."""
         if not tool_config.file_patterns:
@@ -200,7 +200,7 @@ class UniversalAutoFixer:
 
             if result.returncode == 0:
                 self.logger.info(
-                    f"✅ {tool_config.name} completed successfully ({execution_time:.2f}s)"
+                    f"✅ {tool_config.name} completed successfully ({execution_time:.2f}s)",
                 )
 
                 # Check if tool actually made changes
@@ -218,14 +218,14 @@ class UniversalAutoFixer:
 
         except subprocess.TimeoutExpired:
             raise DuggerToolError(
-                tool_config.name, tool_config.fix_command, "Tool execution timed out"
+                tool_config.name, tool_config.fix_command, "Tool execution timed out",
             )
         except DuggerToolError:
             # Re-raise our custom errors
             raise
         except Exception as e:
             raise DuggerToolError(
-                tool_config.name, tool_config.fix_command, f"Unexpected error: {e}"
+                tool_config.name, tool_config.fix_command, f"Unexpected error: {e}",
             )
 
     def _tool_made_changes(self, output: str) -> bool:
@@ -266,7 +266,7 @@ class UniversalAutoFixer:
                 is_available = self._check_tool_availability(tool_config.check)
             except DuggerToolError as e:
                 self.logger.warning(
-                    f"Tool check failed for {tool_config.name}: {e.message}"
+                    f"Tool check failed for {tool_config.name}: {e.message}",
                 )
                 is_available = False
 
@@ -291,7 +291,7 @@ class UniversalAutoFixer:
         try:
             if not self._check_tool_availability(tool_config.check):
                 raise DuggerToolError(
-                    tool_name, tool_config.check.command, "Tool not available"
+                    tool_name, tool_config.check.command, "Tool not available",
                 )
         except DuggerToolError as e:
             self.logger.error(str(e))
@@ -365,7 +365,7 @@ class MultiProviderAutoFixer:
         return fixes_applied
 
     def _run_provider_fixes(
-        self, provider_name: str, staged_files: list[Path] | None
+        self, provider_name: str, staged_files: list[Path] | None,
     ) -> bool:
         """Run fixes for a specific provider."""
         # This would integrate with individual provider auto-fixers
