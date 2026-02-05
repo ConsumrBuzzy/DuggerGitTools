@@ -7,7 +7,8 @@ from typing import Any
 from git import InvalidGitRepositoryError, Repo
 from loguru import logger
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (Progress, SpinnerColumn, TextColumn,
+                           TimeElapsedColumn)
 
 from ..providers.base import BaseProvider, ProviderType
 from ..providers.chrome import ChromeExtensionProvider
@@ -113,7 +114,9 @@ class DGTOrchestrator:
             return {"error": str(e)}
 
     def run_commit_workflow(
-        self, message: str, auto_add: bool = True,
+        self,
+        message: str,
+        auto_add: bool = True,
     ) -> dict[str, Any]:
         """Run the complete commit workflow."""
         workflow_result = {
@@ -161,7 +164,8 @@ class DGTOrchestrator:
                     raise ValueError("No staged changes to commit")
 
                 progress.update(
-                    task, description=f"Found {len(staged_files)} staged files ✓",
+                    task,
+                    description=f"Found {len(staged_files)} staged files ✓",
                 )
 
                 # Step 3: Run auto-fixes (enhanced from Brownbook pattern)
@@ -232,10 +236,12 @@ class DGTOrchestrator:
                     new_version = self.version_manager.bump_version()
                     self.git_ops.stage_all()
                     version_commit = self.git_ops.commit(
-                        f"chore: Bump version to {new_version}", no_verify=True,
+                        f"chore: Bump version to {new_version}",
+                        no_verify=True,
                     )
                     progress.update(
-                        task, description=f"Version bumped to {new_version} ✓",
+                        task,
+                        description=f"Version bumped to {new_version} ✓",
                     )
 
                 # Step 8: Run post-flight checks
@@ -381,7 +387,8 @@ class DGTOrchestrator:
             "capabilities": {
                 "has_llm": self.config.provider_config.get("use_llm", False),
                 "auto_bump_version": self.config.provider_config.get(
-                    "auto_bump_version", False,
+                    "auto_bump_version",
+                    False,
                 ),
                 "auto_fixes": True,
                 "line_number_tracking": True,

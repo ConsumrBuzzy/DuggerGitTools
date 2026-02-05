@@ -66,10 +66,14 @@ def commit(
     message: str = typer.Option(..., "-m", "--message", help="Commit message"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run in dry-run mode"),
     no_add: bool = typer.Option(
-        False, "--no-add", help="Don't automatically add changes",
+        False,
+        "--no-add",
+        help="Don't automatically add changes",
     ),
     no_push: bool = typer.Option(
-        False, "--no-push", help="Don't automatically push to remote",
+        False,
+        "--no-push",
+        help="Don't automatically push to remote",
     ),
     project_root: Path
     | None = typer.Option(None, "--root", help="Project root directory"),
@@ -136,10 +140,13 @@ def info(
 @app.command()
 def init(
     project_root: Path = typer.Argument(
-        ..., help="Project root directory to initialize",
+        ...,
+        help="Project root directory to initialize",
     ),
     force: bool = typer.Option(
-        False, "--force", help="Overwrite existing configuration",
+        False,
+        "--force",
+        help="Overwrite existing configuration",
     ),
 ) -> None:
     """Initialize DGT configuration for a project."""
