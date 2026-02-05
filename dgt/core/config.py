@@ -44,13 +44,13 @@ class ProviderConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Whether this provider is enabled")
     pre_flight_checks: list[str] = Field(
-        default_factory=list, description="Pre-flight checks to run"
+        default_factory=list, description="Pre-flight checks to run",
     )
     post_flight_checks: list[str] = Field(
-        default_factory=list, description="Post-flight checks to run"
+        default_factory=list, description="Post-flight checks to run",
     )
     custom_settings: dict[str, Any] = Field(
-        default_factory=dict, description="Provider-specific settings"
+        default_factory=dict, description="Provider-specific settings",
     )
 
 
@@ -59,23 +59,23 @@ class DGTConfig(BaseModel):
 
     project_root: Path = Field(description="Root directory of the project")
     auto_push: bool = Field(
-        default=True, description="Automatically push after successful commit"
+        default=True, description="Automatically push after successful commit",
     )
     dry_run: bool = Field(
-        default=False, description="Run in dry-run mode without making changes"
+        default=False, description="Run in dry-run mode without making changes",
     )
     commit_message_template: str = Field(
         default="[{language}] {message}",
         description="Template for commit messages",
     )
     logging: LoggingConfig = Field(
-        default_factory=LoggingConfig, description="Logging configuration"
+        default_factory=LoggingConfig, description="Logging configuration",
     )
     providers: dict[str, ProviderConfig] = Field(
-        default_factory=dict, description="Provider configurations"
+        default_factory=dict, description="Provider configurations",
     )
     provider_config: dict[str, Any] = Field(
-        default_factory=dict, description="Legacy provider configuration field"
+        default_factory=dict, description="Legacy provider configuration field",
     )
 
     @validator("project_root")

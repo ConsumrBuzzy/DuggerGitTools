@@ -40,7 +40,7 @@ def version_callback(value: bool) -> None:
     """Version callback - displays version and exits."""
     if value:
         console.print(
-            f"[bold cyan]DuggerGitTools (DGT)[/bold cyan] [green]v{__version__}[/green]"
+            f"[bold cyan]DuggerGitTools (DGT)[/bold cyan] [green]v{__version__}[/green]",
         )
         console.print("[dim]Universal DevOps Chassis - Genesis Release[/dim]")
         raise typer.Exit()
@@ -66,10 +66,10 @@ def commit(
     message: str = typer.Option(..., "-m", "--message", help="Commit message"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run in dry-run mode"),
     no_add: bool = typer.Option(
-        False, "--no-add", help="Don't automatically add changes"
+        False, "--no-add", help="Don't automatically add changes",
     ),
     no_push: bool = typer.Option(
-        False, "--no-push", help="Don't automatically push to remote"
+        False, "--no-push", help="Don't automatically push to remote",
     ),
     project_root: Path
     | None = typer.Option(None, "--root", help="Project root directory"),
@@ -136,10 +136,10 @@ def info(
 @app.command()
 def init(
     project_root: Path = typer.Argument(
-        ..., help="Project root directory to initialize"
+        ..., help="Project root directory to initialize",
     ),
     force: bool = typer.Option(
-        False, "--force", help="Overwrite existing configuration"
+        False, "--force", help="Overwrite existing configuration",
     ),
 ) -> None:
     """Initialize DGT configuration for a project."""
@@ -148,7 +148,7 @@ def init(
 
         if config_file.exists() and not force:
             console.print(
-                f"[yellow]Configuration file already exists: {config_file}[/yellow]"
+                f"[yellow]Configuration file already exists: {config_file}[/yellow]",
             )
             console.print("Use --force to overwrite")
             sys.exit(1)
@@ -186,7 +186,7 @@ def _display_commit_result(result: dict) -> None:
                 f"[green]✓ {result['message']}[/green]",
                 title="Commit Successful",
                 border_style="green",
-            )
+            ),
         )
 
         if result["pre_flight_results"]:
@@ -210,7 +210,7 @@ def _display_commit_result(result: dict) -> None:
             console.print(f"[dim]Commit hash: {result['commit_hash']}[/dim]")
 
         console.print(
-            f"[dim]Total execution time: {result['execution_time']:.2f}s[/dim]"
+            f"[dim]Total execution time: {result['execution_time']:.2f}s[/dim]",
         )
 
     else:
@@ -219,7 +219,7 @@ def _display_commit_result(result: dict) -> None:
                 f"[red]✗ {result['message']}[/red]",
                 title="Commit Failed",
                 border_style="red",
-            )
+            ),
         )
 
         if result["pre_flight_results"]:
@@ -239,12 +239,12 @@ def _display_dry_run_result(result: dict) -> None:
             "[yellow]Dry run mode - no changes made[/yellow]",
             title="Dry Run Results",
             border_style="yellow",
-        )
+        ),
     )
 
     if result["success"]:
         console.print(
-            f"\n[green]Would commit with message:[/green] {result['formatted_commit_message']}"
+            f"\n[green]Would commit with message:[/green] {result['formatted_commit_message']}",
         )
 
         if result["would_commit_files"]:
@@ -258,7 +258,7 @@ def _display_dry_run_result(result: dict) -> None:
                 status = "✓" if check_result["success"] else "✗"
                 color = "green" if check_result["success"] else "red"
                 console.print(
-                    f"  {status} [{color}]{check_result['message']}[/{color}]"
+                    f"  {status} [{color}]{check_result['message']}[/{color}]",
                 )
 
         console.print(f"\n[dim]Execution time: {result['execution_time']:.2f}s[/dim]")
@@ -319,14 +319,14 @@ def _display_project_info(info: dict) -> None:
             f"📁 {info['project_root']}",
             title="Project Overview",
             border_style="blue",
-        )
+        ),
     )
 
     # Provider information
     console.print("\n🔧 Provider Information:")
     console.print(f"  Active: {info['active_provider'] or 'None'}")
     console.print(
-        f"  Available: {', '.join(p.value for p in info['available_providers'])}"
+        f"  Available: {', '.join(p.value for p in info['available_providers'])}",
     )
 
     if info.get("provider_metadata"):

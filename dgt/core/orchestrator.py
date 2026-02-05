@@ -7,8 +7,7 @@ from typing import Any
 from git import InvalidGitRepositoryError, Repo
 from loguru import logger
 from rich.console import Console
-from rich.progress import (Progress, SpinnerColumn, TextColumn,
-                           TimeElapsedColumn)
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from ..providers.base import BaseProvider, ProviderType
 from ..providers.chrome import ChromeExtensionProvider
@@ -51,7 +50,7 @@ class DGTOrchestrator:
 
         if self.active_provider:
             self.logger.info(
-                f"Active provider: {self.active_provider.provider_type.value}"
+                f"Active provider: {self.active_provider.provider_type.value}",
             )
         else:
             self.logger.warning("No suitable provider detected for this project")
@@ -114,7 +113,7 @@ class DGTOrchestrator:
             return {"error": str(e)}
 
     def run_commit_workflow(
-        self, message: str, auto_add: bool = True
+        self, message: str, auto_add: bool = True,
     ) -> dict[str, Any]:
         """Run the complete commit workflow."""
         workflow_result = {
@@ -143,7 +142,7 @@ class DGTOrchestrator:
                 env_validation = self.active_provider.validate_environment()
                 if not env_validation.success:
                     raise ValueError(
-                        f"Environment validation failed: {env_validation.message}"
+                        f"Environment validation failed: {env_validation.message}",
                     )
                 progress.update(task, description="Environment validated ✓")
 
@@ -162,7 +161,7 @@ class DGTOrchestrator:
                     raise ValueError("No staged changes to commit")
 
                 progress.update(
-                    task, description=f"Found {len(staged_files)} staged files ✓"
+                    task, description=f"Found {len(staged_files)} staged files ✓",
                 )
 
                 # Step 3: Run auto-fixes (enhanced from Brownbook pattern)
@@ -182,14 +181,14 @@ class DGTOrchestrator:
                 # Step 4: Run pre-flight checks
                 task = progress.add_task("Running pre-flight checks...", total=None)
                 pre_flight_results = self.active_provider.run_pre_flight_checks(
-                    staged_files
+                    staged_files,
                 )
 
                 failed_checks = [r for r in pre_flight_results if not r.success]
                 if failed_checks:
                     error_messages = [f.message for f in failed_checks]
                     raise ValueError(
-                        f"Pre-flight checks failed: {'; '.join(error_messages)}"
+                        f"Pre-flight checks failed: {'; '.join(error_messages)}",
                     )
 
                 workflow_result["pre_flight_results"] = [
@@ -213,7 +212,7 @@ class DGTOrchestrator:
 
                 # Apply provider-specific formatting
                 formatted_message = self.active_provider.format_commit_message(
-                    commit_message
+                    commit_message,
                 )
                 progress.update(task, description="Commit message generated ✓")
 
@@ -233,23 +232,23 @@ class DGTOrchestrator:
                     new_version = self.version_manager.bump_version()
                     self.git_ops.stage_all()
                     version_commit = self.git_ops.commit(
-                        f"chore: Bump version to {new_version}", no_verify=True
+                        f"chore: Bump version to {new_version}", no_verify=True,
                     )
                     progress.update(
-                        task, description=f"Version bumped to {new_version} ✓"
+                        task, description=f"Version bumped to {new_version} ✓",
                     )
 
                 # Step 8: Run post-flight checks
                 task = progress.add_task("Running post-flight checks...", total=None)
                 post_flight_results = self.active_provider.run_post_flight_checks(
-                    commit_hash
+                    commit_hash,
                 )
 
                 failed_post_checks = [r for r in post_flight_results if not r.success]
                 if failed_post_checks:
                     warning_messages = [f.message for f in failed_post_checks]
                     self.logger.warning(
-                        f"Post-flight warnings: {'; '.join(warning_messages)}"
+                        f"Post-flight warnings: {'; '.join(warning_messages)}",
                     )
 
                 workflow_result["post_flight_results"] = [
@@ -326,13 +325,13 @@ class DGTOrchestrator:
 
             # Apply provider-specific formatting
             final_message = self.active_provider.format_commit_message(
-                formatted_message
+                formatted_message,
             )
 
             # Run pre-flight checks on would-be committed files
             staged_files = [Path(f) for f in would_commit_files]
             pre_flight_results = self.active_provider.run_pre_flight_checks(
-                staged_files
+                staged_files,
             )
 
             # Get version information
@@ -354,7 +353,7 @@ class DGTOrchestrator:
                     "formatted_commit_message": final_message,
                     "version_info": version_info,
                     "execution_time": time.time() - start_time,
-                }
+                },
             )
 
         except Exception as e:
@@ -382,7 +381,7 @@ class DGTOrchestrator:
             "capabilities": {
                 "has_llm": self.config.provider_config.get("use_llm", False),
                 "auto_bump_version": self.config.provider_config.get(
-                    "auto_bump_version", False
+                    "auto_bump_version", False,
                 ),
                 "auto_fixes": True,
                 "line_number_tracking": True,
