@@ -1,0 +1,66 @@
+# Ecosystem Scan Exclusions
+# Prevents indexing of sensitive data and large directories
+
+# Large dependency directories
+node_modules/
+venv/
+.venv/
+env/
+.env/
+dist/
+build/
+
+# Sensitive configuration
+.env
+.env.local
+.env.*.local
+config/secrets/
+*.key
+*.pem
+*.p12
+
+# Large binary files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.exe
+*.msi
+*.dmg
+
+# Database files
+*.sql
+*.sqlite
+*.db
+*.mdb
+
+# Log files
+*.log
+logs/
+
+# Cache directories
+.cache/
+__pycache__/
+.pytest_cache/
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*.old
